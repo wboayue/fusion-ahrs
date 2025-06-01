@@ -1,364 +1,53 @@
 #![no_std]
 
-use nalgebra::{Matrix3, UnitQuaternion, Vector3};
+//! Fusion AHRS - A sensor fusion library for attitude and heading reference systems
+//!
+//! This library provides a complete implementation of an AHRS algorithm that fuses
+//! gyroscope, accelerometer, and magnetometer data to estimate device orientation.
+//! It features automatic sensor rejection during motion/interference and recovery
+//! mechanisms for robust operation.
+//!
+//! # Features
+//!
+//! - Complementary filter with sensor fusion
+//! - Automatic accelerometer rejection during motion
+//! - Automatic magnetometer rejection during magnetic interference  
+//! - Gyroscope offset correction for temperature drift
+//! - Support for multiple Earth coordinate conventions (NWU, ENU, NED)
+//! - `#![no_std]` compatible for embedded systems
+//!
+//! # Quick Start
+//!
+//! ```rust
+//! use nalgebra::Vector3;
+//! use fusion_ahrs::{Ahrs, AhrsSettings};
+//!
+//! let mut ahrs = Ahrs::new();
+//! 
+//! // Sensor readings
+//! let gyroscope = Vector3::new(0.1, 0.2, 0.3);      // deg/s
+//! let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
+//! let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // µT
+//! 
+//! // Update AHRS
+//! ahrs.update(gyroscope, accelerometer, magnetometer, 0.01); // 10ms
+//! 
+//! // Get orientation
+//! let quaternion = ahrs.quaternion();
+//! ```
 
-/// Applies inertial sensor calibration
-pub fn calibrate_inertial(
-    uncalibrated: Vector3<f32>,
-    misalignment: Matrix3<f32>,
-    sensitivity: Vector3<f32>,
-    offset: Vector3<f32>,
-) -> Vector3<f32> {
-    misalignment * (uncalibrated.component_mul(&sensitivity) - offset)
-}
+mod types;
+mod math;
+mod calibration;
+mod offset;
+mod compass;
+mod ahrs;
 
-/// Applies magnetometer calibration
-pub fn calibrate_magnetic(
-    uncalibrated: Vector3<f32>,
-    soft_iron_matrix: Matrix3<f32>,
-    hard_iron_offset: Vector3<f32>,
-) -> Vector3<f32> {
-    soft_iron_matrix * (uncalibrated - hard_iron_offset)
-}
+// Re-export all public types and functions
+pub use types::*;
+pub use math::{Vector3Ext, QuaternionExt, DEG_TO_RAD, RAD_TO_DEG};
+pub use calibration::{calibrate_inertial, calibrate_magnetic};
+pub use offset::Offset;
+pub use compass::calculate_heading;
+pub use ahrs::Ahrs;
 
-/// Earth axes convention
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Convention {
-    /// North-West-Up
-    Nwu,
-    /// East-North-Up
-    Enu,
-    /// North-East-Down
-    Ned,
-}
-
-impl Default for Convention {
-    fn default() -> Self {
-        Self::Nwu
-    }
-}
-
-/// AHRS algorithm settings
-#[derive(Debug, Clone, Copy)]
-pub struct AhrsSettings {
-    /// Earth axes convention
-    pub convention: Convention,
-    /// Algorithm gain (typically 0.5)
-    pub gain: f32,
-    /// Gyroscope range in degrees per second
-    pub gyroscope_range: f32,
-    /// Acceleration rejection threshold
-    pub acceleration_rejection: f32,
-    /// Magnetic rejection threshold
-    pub magnetic_rejection: f32,
-    /// Recovery trigger period in samples
-    pub recovery_trigger_period: u32,
-}
-
-impl Default for AhrsSettings {
-    fn default() -> Self {
-        Self {
-            convention: Convention::default(),
-            gain: 0.5,
-            gyroscope_range: 2000.0,
-            acceleration_rejection: 10.0,
-            magnetic_rejection: 20.0,
-            recovery_trigger_period: 5 * 512, // 5 seconds at 512 Hz
-        }
-    }
-}
-
-/// AHRS algorithm internal states
-#[derive(Debug, Clone, Copy)]
-pub struct AhrsInternalStates {
-    /// Acceleration error magnitude
-    pub acceleration_error: f32,
-    /// Whether accelerometer is being ignored
-    pub accelerometer_ignored: bool,
-    /// Acceleration recovery trigger countdown
-    pub acceleration_recovery_trigger: f32,
-    /// Magnetic error magnitude
-    pub magnetic_error: f32,
-    /// Whether magnetometer is being ignored
-    pub magnetometer_ignored: bool,
-    /// Magnetic recovery trigger countdown
-    pub magnetic_recovery_trigger: f32,
-}
-
-impl Default for AhrsInternalStates {
-    fn default() -> Self {
-        Self {
-            acceleration_error: 0.0,
-            accelerometer_ignored: false,
-            acceleration_recovery_trigger: 0.0,
-            magnetic_error: 0.0,
-            magnetometer_ignored: false,
-            magnetic_recovery_trigger: 0.0,
-        }
-    }
-}
-
-/// AHRS algorithm flags
-#[derive(Debug, Clone, Copy, Default)]
-pub struct AhrsFlags {
-    /// Whether algorithm is initializing
-    pub initialising: bool,
-    /// Whether angular rate recovery is active
-    pub angular_rate_recovery: bool,
-    /// Whether acceleration recovery is active
-    pub acceleration_recovery: bool,
-    /// Whether magnetic recovery is active
-    pub magnetic_recovery: bool,
-}
-
-/// Gyroscope offset correction settings
-#[derive(Debug, Clone, Copy)]
-pub struct OffsetSettings {
-    /// Filter coefficient for offset estimation (typically 0.01)
-    pub filter_coefficient: f32,
-    /// Timeout period in seconds (typically 5.0)
-    pub timeout: f32,
-}
-
-impl Default for OffsetSettings {
-    fn default() -> Self {
-        Self {
-            filter_coefficient: 0.01,
-            timeout: 5.0,
-        }
-    }
-}
-
-/// Gyroscope offset correction structure
-#[derive(Debug, Clone, Copy)]
-pub struct Offset {
-    /// Filter coefficient for offset estimation
-    filter_coefficient: f32,
-    /// Timeout period in samples
-    timeout: u32,
-    /// Current timer value
-    timer: u32,
-    /// Estimated gyroscope offset
-    gyroscope_offset: Vector3<f32>,
-}
-
-impl Offset {
-    /// Initialize offset correction with the given settings
-    pub fn new(settings: OffsetSettings) -> Self {
-        Self {
-            filter_coefficient: settings.filter_coefficient,
-            timeout: 0, // Will be set based on sample rate when used
-            timer: 0,
-            gyroscope_offset: Vector3::zeros(),
-        }
-    }
-
-    /// Update offset estimation and return corrected gyroscope reading
-    pub fn update(&mut self, gyroscope: Vector3<f32>) -> Vector3<f32> {
-        // Placeholder implementation - will be replaced with actual algorithm
-        gyroscope - self.gyroscope_offset
-    }
-
-    /// Get current offset estimate
-    pub fn offset(&self) -> Vector3<f32> {
-        self.gyroscope_offset
-    }
-}
-
-/// Main AHRS algorithm structure
-pub struct Ahrs {
-    /// Algorithm settings
-    settings: AhrsSettings,
-    /// Current orientation quaternion
-    quaternion: UnitQuaternion<f32>,
-    /// Last accelerometer reading
-    accelerometer: Vector3<f32>,
-    /// Whether algorithm is initializing
-    initialising: bool,
-    /// Ramped gain value
-    ramped_gain: f32,
-    /// Gain ramping step size
-    ramped_gain_step: f32,
-    /// Angular rate recovery flag
-    angular_rate_recovery: bool,
-    /// Half accelerometer feedback vector
-    half_accelerometer_feedback: Vector3<f32>,
-    /// Half magnetometer feedback vector
-    half_magnetometer_feedback: Vector3<f32>,
-    /// Accelerometer ignored flag
-    accelerometer_ignored: bool,
-    /// Acceleration recovery trigger countdown
-    acceleration_recovery_trigger: i32,
-    /// Acceleration recovery timeout
-    acceleration_recovery_timeout: i32,
-    /// Magnetometer ignored flag
-    magnetometer_ignored: bool,
-    /// Magnetic recovery trigger countdown
-    magnetic_recovery_trigger: i32,
-    /// Magnetic recovery timeout
-    magnetic_recovery_timeout: i32,
-}
-
-impl Ahrs {
-    /// Create a new AHRS instance with default settings
-    pub fn new() -> Self {
-        Self::with_settings(AhrsSettings::default())
-    }
-
-    /// Create a new AHRS instance with specified settings
-    pub fn with_settings(settings: AhrsSettings) -> Self {
-        Ahrs {
-            settings,
-            quaternion: UnitQuaternion::identity(),
-            accelerometer: Vector3::zeros(),
-            initialising: true,
-            ramped_gain: 0.0,
-            ramped_gain_step: 0.0,
-            angular_rate_recovery: false,
-            half_accelerometer_feedback: Vector3::zeros(),
-            half_magnetometer_feedback: Vector3::zeros(),
-            accelerometer_ignored: false,
-            acceleration_recovery_trigger: 0,
-            acceleration_recovery_timeout: 0,
-            magnetometer_ignored: false,
-            magnetic_recovery_trigger: 0,
-            magnetic_recovery_timeout: 0,
-        }
-    }
-
-    /// Initialize/reset the AHRS algorithm
-    pub fn initialise(&mut self) {
-        self.quaternion = UnitQuaternion::identity();
-        self.accelerometer = Vector3::zeros();
-        self.initialising = true;
-        self.ramped_gain = 0.0;
-        self.ramped_gain_step = 0.002; // 2 seconds @ 1000 Hz
-        self.angular_rate_recovery = false;
-        self.half_accelerometer_feedback = Vector3::zeros();
-        self.half_magnetometer_feedback = Vector3::zeros();
-        self.accelerometer_ignored = false;
-        self.acceleration_recovery_trigger = 0;
-        self.acceleration_recovery_timeout = 0;
-        self.magnetometer_ignored = false;
-        self.magnetic_recovery_trigger = 0;
-        self.magnetic_recovery_timeout = 0;
-    }
-
-    /// Reset the algorithm (alias for initialise)
-    pub fn reset(&mut self) {
-        self.initialise();
-    }
-
-    /// Update algorithm settings
-    pub fn set_settings(&mut self, settings: AhrsSettings) {
-        self.settings = settings;
-    }
-
-    /// Get current algorithm settings
-    pub fn get_settings(&self) -> AhrsSettings {
-        self.settings
-    }
-
-    /// Update AHRS with gyroscope, accelerometer, and magnetometer data
-    pub fn update(
-        &mut self,
-        gyroscope: Vector3<f32>,
-        accelerometer: Vector3<f32>,
-        magnetometer: Vector3<f32>,
-        delta_time: f32,
-    ) {
-        // Placeholder - will implement full algorithm
-        self.accelerometer = accelerometer;
-    }
-
-    /// Update AHRS without magnetometer (gyroscope and accelerometer only)
-    pub fn update_no_magnetometer(
-        &mut self,
-        gyroscope: Vector3<f32>,
-        accelerometer: Vector3<f32>,
-        delta_time: f32,
-    ) {
-        // Placeholder - will implement algorithm without magnetometer
-        self.accelerometer = accelerometer;
-    }
-
-    /// Update AHRS with external heading source
-    pub fn update_external_heading(
-        &mut self,
-        gyroscope: Vector3<f32>,
-        accelerometer: Vector3<f32>,
-        heading: f32,
-        delta_time: f32,
-    ) {
-        // Placeholder - will implement algorithm with external heading
-        self.accelerometer = accelerometer;
-    }
-
-    /// Get current orientation quaternion
-    pub fn quaternion(&self) -> UnitQuaternion<f32> {
-        self.quaternion
-    }
-
-    /// Set orientation quaternion directly
-    pub fn set_quaternion(&mut self, quaternion: UnitQuaternion<f32>) {
-        self.quaternion = quaternion;
-    }
-
-    /// Get gravity vector in sensor frame
-    pub fn gravity(&self) -> Vector3<f32> {
-        // Placeholder - will implement gravity calculation
-        Vector3::new(0.0, 0.0, 1.0)
-    }
-
-    /// Get linear acceleration (acceleration minus gravity)
-    pub fn linear_acceleration(&self) -> Vector3<f32> {
-        // Placeholder - will implement linear acceleration calculation
-        self.accelerometer - self.gravity()
-    }
-
-    /// Get earth-frame acceleration
-    pub fn earth_acceleration(&self) -> Vector3<f32> {
-        // Placeholder - will implement earth acceleration calculation
-        self.quaternion * self.linear_acceleration()
-    }
-
-    /// Get internal algorithm states
-    pub fn internal_states(&self) -> AhrsInternalStates {
-        // Placeholder - will implement based on internal state
-        AhrsInternalStates::default()
-    }
-
-    /// Get algorithm flags
-    pub fn flags(&self) -> AhrsFlags {
-        AhrsFlags {
-            initialising: self.initialising,
-            angular_rate_recovery: self.angular_rate_recovery,
-            acceleration_recovery: self.acceleration_recovery_trigger > 0,
-            magnetic_recovery: self.magnetic_recovery_trigger > 0,
-        }
-    }
-
-    /// Set heading angle directly
-    pub fn set_heading(&mut self, heading: f32) {
-        // Placeholder - will implement heading adjustment
-    }
-}
-
-impl Default for Ahrs {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_new_ahrs() {
-        let ahrs = Ahrs::new();
-        // Add assertions to verify the initial state of the AHRS
-        assert_eq!(ahrs.quaternion(), UnitQuaternion::identity());
-    }
-}
