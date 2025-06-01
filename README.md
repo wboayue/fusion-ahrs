@@ -1,6 +1,6 @@
 # Fusion AHRS
 
-Fusion AHRS is a sensor fusion library for Inertial Measurement Units (IMUs), optimised for embedded systems. This is a Rust port of the original C library, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics. The library is available on [crates.io](https://crates.io/crates/fusion-ahrs) and includes comprehensive examples demonstrating usage with sample sensor data.
+Fusion AHRS is a sensor fusion library for Inertial Measurement Units (IMUs), optimised for embedded systems. This is a Rust port of the original [C library](https://github.com/xioTechnologies/Fusion) by xioTechnologies, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics. The library is available on [crates.io](https://crates.io/crates/fusion-ahrs) and includes comprehensive examples demonstrating usage with sample sensor data.
 
 ## Features
 
