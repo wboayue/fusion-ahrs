@@ -53,6 +53,15 @@ cargo check
 
 ## Implementation Guidelines
 
+### Code Quality Priorities
+
+When contributing code, adhere to the following priorities to ensure simplicity, modularity, testability, performance.
+
+#### Target Metrics
+- Modularity: 8+/10 (single-responsibility principle, minimal public APIs)
+- Testability: 9+/10 (comprehensive unit and integration test)
+- Performance: 8+/10 (no-std, minimal allocations)
+
 ### Sensor Data Flow
 1. Raw sensor data comes in as `Vector3<f32>` (gyroscope, accelerometer, magnetometer)
 2. Data flows through the AHRS algorithm (to be implemented)
@@ -79,6 +88,12 @@ Based on the C reference and README, these core types need Rust equivalents:
 - Use `nalgebra`'s no-std features
 - Test embedded compatibility regularly
 
+### Documentation
+- Maintain README.md with project overview, setup, and usage instructions.
+- Include example code for common use cases.
+- All public APIs should have Rustdc with a description of functionality and an arguments and examples sections
+- The should be crate level Rustdoc with a description of the project and examples.
+
 ## C Reference Implementation
 
 The `fusion_c/` directory contains the original C implementation that serves as the specification:
@@ -88,3 +103,23 @@ The `fusion_c/` directory contains the original C implementation that serves as 
 - Examples demonstrate complete usage patterns
 
 When implementing Rust equivalents, maintain the same algorithm behavior while adapting to Rust idioms and nalgebra types.
+
+## Test Data
+
+Test sensor data is available in `testdata/sensor_data.csv`
+
+Sensor data contains the following columns:
+- Time (s)
+- Gyroscope X (deg/s)
+- Gyroscope Y (deg/s)
+- Gyroscope Z (deg/s)
+- Accelerometer X (g)
+- Accelerometer Y (g)
+- Accelerometer Z (g)
+- Magnetometer X (uT)
+- Magnetometer Y (uT)
+- Magnetometer Z (uT)
+
+## Visualizations
+
+When creating a visualization, use the Rust library plotters. 
