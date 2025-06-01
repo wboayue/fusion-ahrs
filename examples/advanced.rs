@@ -159,17 +159,17 @@ fn create_advanced_plots(
     euler_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(euler_angles.iter()).map(|(d, e)| (d.time, e.0)),
         &RED,
-    ))?.label("Roll").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RED));
+    ))?.label("Roll").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RED));
 
     euler_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(euler_angles.iter()).map(|(d, e)| (d.time, e.1)),
         &GREEN,
-    ))?.label("Pitch").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &GREEN));
+    ))?.label("Pitch").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], GREEN));
 
     euler_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(euler_angles.iter()).map(|(d, e)| (d.time, e.2)),
         &BLUE,
-    ))?.label("Yaw").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &BLUE));
+    ))?.label("Yaw").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], BLUE));
 
     euler_chart.configure_series_labels().draw()?;
 
@@ -193,7 +193,7 @@ fn create_advanced_plots(
     accel_error_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(internal_states.iter()).map(|(d, s)| (d.time, s.0)),
         &RGBColor(128, 128, 0), // olive
-    ))?.label("Acceleration error").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RGBColor(128, 128, 0)));
+    ))?.label("Acceleration error").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RGBColor(128, 128, 0)));
 
     accel_error_chart.configure_series_labels().draw()?;
 
@@ -212,7 +212,7 @@ fn create_advanced_plots(
     accel_trigger_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(internal_states.iter()).map(|(d, s)| (d.time, s.2)),
         &RGBColor(255, 165, 0), // orange
-    ))?.label("Acceleration recovery trigger").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RGBColor(255, 165, 0)));
+    ))?.label("Acceleration recovery trigger").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RGBColor(255, 165, 0)));
 
     accel_trigger_chart.configure_series_labels().draw()?;
 
@@ -233,7 +233,7 @@ fn create_advanced_plots(
     mag_error_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(internal_states.iter()).map(|(d, s)| (d.time, s.3)),
         &RGBColor(128, 128, 0), // olive
-    ))?.label("Magnetic error").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RGBColor(128, 128, 0)));
+    ))?.label("Magnetic error").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RGBColor(128, 128, 0)));
 
     mag_error_chart.configure_series_labels().draw()?;
 
@@ -252,7 +252,7 @@ fn create_advanced_plots(
     mag_trigger_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(internal_states.iter()).map(|(d, s)| (d.time, s.5)),
         &RGBColor(255, 165, 0), // orange
-    ))?.label("Magnetic recovery trigger").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RGBColor(255, 165, 0)));
+    ))?.label("Magnetic recovery trigger").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RGBColor(255, 165, 0)));
 
     mag_trigger_chart.configure_series_labels().draw()?;
 
@@ -288,7 +288,7 @@ fn create_bool_plot(
     chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(values.iter()).map(|(d, &v)| (d.time, v)),
         &CYAN,
-    ))?.label(label).legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &CYAN));
+    ))?.label(label).legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], CYAN));
 
     chart.configure_series_labels().draw()?;
     Ok(())

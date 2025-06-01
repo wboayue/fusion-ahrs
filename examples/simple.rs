@@ -21,10 +21,13 @@ struct SensorData {
     #[serde(rename = "Accelerometer Z (g)")]
     accel_z: f32,
     #[serde(rename = "Magnetometer X (uT)")]
+    #[allow(dead_code)]
     mag_x: f32,
     #[serde(rename = "Magnetometer Y (uT)")]
+    #[allow(dead_code)]
     mag_y: f32,
     #[serde(rename = "Magnetometer Z (uT)")]
+    #[allow(dead_code)]
     mag_z: f32,
 }
 
@@ -92,17 +95,17 @@ fn create_plots(sensor_data: &[SensorData], euler_angles: &[(f32, f32, f32)]) ->
     gyro_chart.draw_series(LineSeries::new(
         sensor_data.iter().map(|d| (d.time, d.gyro_x)),
         &RED,
-    ))?.label("X").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RED));
+    ))?.label("X").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RED));
 
     gyro_chart.draw_series(LineSeries::new(
         sensor_data.iter().map(|d| (d.time, d.gyro_y)),
         &GREEN,
-    ))?.label("Y").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &GREEN));
+    ))?.label("Y").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], GREEN));
 
     gyro_chart.draw_series(LineSeries::new(
         sensor_data.iter().map(|d| (d.time, d.gyro_z)),
         &BLUE,
-    ))?.label("Z").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &BLUE));
+    ))?.label("Z").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], BLUE));
 
     gyro_chart.configure_series_labels().draw()?;
 
@@ -125,17 +128,17 @@ fn create_plots(sensor_data: &[SensorData], euler_angles: &[(f32, f32, f32)]) ->
     accel_chart.draw_series(LineSeries::new(
         sensor_data.iter().map(|d| (d.time, d.accel_x)),
         &RED,
-    ))?.label("X").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RED));
+    ))?.label("X").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RED));
 
     accel_chart.draw_series(LineSeries::new(
         sensor_data.iter().map(|d| (d.time, d.accel_y)),
         &GREEN,
-    ))?.label("Y").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &GREEN));
+    ))?.label("Y").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], GREEN));
 
     accel_chart.draw_series(LineSeries::new(
         sensor_data.iter().map(|d| (d.time, d.accel_z)),
         &BLUE,
-    ))?.label("Z").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &BLUE));
+    ))?.label("Z").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], BLUE));
 
     accel_chart.configure_series_labels().draw()?;
 
@@ -158,17 +161,17 @@ fn create_plots(sensor_data: &[SensorData], euler_angles: &[(f32, f32, f32)]) ->
     euler_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(euler_angles.iter()).map(|(d, e)| (d.time, e.0)),
         &RED,
-    ))?.label("Roll").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &RED));
+    ))?.label("Roll").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], RED));
 
     euler_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(euler_angles.iter()).map(|(d, e)| (d.time, e.1)),
         &GREEN,
-    ))?.label("Pitch").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &GREEN));
+    ))?.label("Pitch").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], GREEN));
 
     euler_chart.draw_series(LineSeries::new(
         sensor_data.iter().zip(euler_angles.iter()).map(|(d, e)| (d.time, e.2)),
         &BLUE,
-    ))?.label("Yaw").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &BLUE));
+    ))?.label("Yaw").legend(|(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], BLUE));
 
     euler_chart.configure_series_labels().draw()?;
 

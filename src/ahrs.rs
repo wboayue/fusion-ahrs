@@ -353,7 +353,7 @@ impl Ahrs {
         self.quaternion = UnitQuaternion::from_euler_angles(roll, pitch, heading_rad);
     }
     
-    /// Private helper methods
+    // Private helper methods
     
     /// Process settings and calculate derived values
     fn process_settings(&mut self) {
@@ -454,7 +454,7 @@ impl Ahrs {
     /// Integrate quaternion using gyroscope reading
     fn integrate_quaternion(&mut self, half_gyroscope: Vector3<f32>, delta_time: f32) {
         // Create quaternion from gyroscope reading
-        let gyro_quat = Quaternion::from_parts(0.0, half_gyroscope.into());
+        let gyro_quat = Quaternion::from_parts(0.0, half_gyroscope);
         
         // Quaternion derivative: dq/dt = 0.5 * q * ω
         let quaternion_derivative = self.quaternion.as_ref() * gyro_quat;
@@ -524,8 +524,10 @@ mod tests {
     
     #[test]
     fn test_gyroscope_overflow_detection() {
-        let mut settings = AhrsSettings::default();
-        settings.gyroscope_range = 500.0; // 500 deg/s range
+        let settings = AhrsSettings {
+            gyroscope_range: 500.0, // 500 deg/s range
+            ..Default::default()
+        };
         let mut ahrs = Ahrs::with_settings(settings);
         
         // Complete initialization first
@@ -548,9 +550,11 @@ mod tests {
     
     #[test]
     fn test_accelerometer_rejection() {
-        let mut settings = AhrsSettings::default();
-        settings.acceleration_rejection = 10.0; // 10 degree threshold
-        settings.recovery_trigger_period = 100;
+        let settings = AhrsSettings {
+            acceleration_rejection: 10.0, // 10 degree threshold
+            recovery_trigger_period: 100,
+            ..Default::default()
+        };
         
         let mut ahrs = Ahrs::with_settings(settings);
         
@@ -572,7 +576,7 @@ mod tests {
         
         // Apply bad readings repeatedly to eventually trigger rejection
         let mut rejected = false;
-        for i in 0..150 {
+        for _i in 0..150 {
             ahrs.update(gyro, large_accel, mag, 0.01);
             let states = ahrs.internal_states();
             

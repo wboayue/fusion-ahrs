@@ -8,6 +8,7 @@ pub const RAD_TO_DEG: f32 = 180.0 / core::f32::consts::PI;
 
 /// Fast inverse square root implementation
 /// Based on the famous "Quake" algorithm with Newton-Raphson iteration
+#[allow(dead_code)]
 pub fn fast_inverse_sqrt(x: f32) -> f32 {
     if x <= 0.0 {
         return 0.0;

@@ -1,7 +1,5 @@
 //! Core types and conventions for the Fusion AHRS library
 
-use nalgebra::Vector3;
-
 /// Earth axes convention
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Convention {

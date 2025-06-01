@@ -247,7 +247,7 @@ mod tests {
             
             let heading = calculate_heading(Convention::Nwu, level_accel, mag);
             
-            assert!(heading >= -180.0 && heading <= 180.0, 
+            assert!((-180.0..=180.0).contains(&heading), 
                     "Heading {:.1}° out of range for magnetometer angle {}°", heading, angle_deg);
         }
     }

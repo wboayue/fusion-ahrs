@@ -38,9 +38,9 @@
 
 mod types;
 mod math;
-mod calibration;
-mod offset;
-mod compass;
+pub mod calibration;
+pub mod offset;
+pub mod compass;
 mod ahrs;
 
 // Re-export all public types and functions
