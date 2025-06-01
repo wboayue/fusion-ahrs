@@ -92,10 +92,7 @@ fn calculate_heading_ned(accelerometer: Vector3<f32>, magnetometer: Vector3<f32>
     heading_rad * RAD_TO_DEG
 }
 
-/// Safely normalize a vector, using fast inverse square root when available
-///
-/// This function replicates the exact normalization behavior from the C implementation,
-/// including the option to use fast inverse square root for performance.
+/// Safely normalize a vector with standard square root for accuracy
 fn safe_normalize(vector: Vector3<f32>) -> Vector3<f32> {
     let magnitude_squared = vector.magnitude_squared();
 
@@ -103,8 +100,7 @@ fn safe_normalize(vector: Vector3<f32>) -> Vector3<f32> {
         return Vector3::zeros();
     }
 
-    // Use standard square root for better accuracy in tests
-    // (C implementation can use fast inverse sqrt for performance)
+    // Use standard square root for accuracy
     let magnitude_reciprocal = 1.0 / magnitude_squared.sqrt();
 
     vector * magnitude_reciprocal

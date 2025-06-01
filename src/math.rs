@@ -6,25 +6,6 @@ use nalgebra::{UnitQuaternion, Vector3};
 pub const DEG_TO_RAD: f32 = core::f32::consts::PI / 180.0;
 pub const RAD_TO_DEG: f32 = 180.0 / core::f32::consts::PI;
 
-/// Fast inverse square root implementation
-/// Based on the famous "Quake" algorithm with Newton-Raphson iteration
-#[allow(dead_code)]
-pub fn fast_inverse_sqrt(x: f32) -> f32 {
-    if x <= 0.0 {
-        return 0.0;
-    }
-
-    let half_x = 0.5 * x;
-    let mut i = x.to_bits();
-    i = 0x5f3759df - (i >> 1); // Magic number from Quake
-    let mut y = f32::from_bits(i);
-
-    // Newton-Raphson iteration for improved accuracy
-    y = y * (1.5 - (half_x * y * y));
-    y = y * (1.5 - (half_x * y * y)); // Second iteration for higher precision
-
-    y
-}
 
 /// Extension trait for Vector3 operations
 pub trait Vector3Ext {
@@ -103,15 +84,6 @@ impl QuaternionExt for UnitQuaternion<f32> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_fast_inverse_sqrt() {
-        let x = 4.0;
-        let result = fast_inverse_sqrt(x);
-        let expected = 1.0 / x.sqrt();
-
-        // Should be accurate to within 1%
-        assert!((result - expected).abs() / expected < 0.01);
-    }
 
     #[test]
     fn test_vector_extensions() {

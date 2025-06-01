@@ -275,23 +275,6 @@ let axis_angle = orientation.axis_angle();
 
 This integration allows you to easily combine Fusion AHRS with other nalgebra-based libraries in the Rust ecosystem for robotics, computer vision, and scientific computing applications.
 
-Fusion AHRS uses an optimized implementation of the fast inverse square root algorithm for vector and quaternion normalisation. You can enable standard library square root operations by using the `std-sqrt` feature:
-
-```toml
-[dependencies]
-fusion-ahrs = { version = "1.0", features = ["std-sqrt"] }
-```
-
-## Fast Inverse Square Root
-
-Fusion AHRS uses an optimized implementation of the fast inverse square root algorithm for vector and quaternion normalisation. You can enable standard library square root operations by using the `std-sqrt` feature:
-
-```toml
-[dependencies]
-fusion-ahrs = { version = "1.0", features = ["std-sqrt"] }
-```
-
-This will use standard square root operations for all normalisation calculations, which will slightly slow down execution speed for a small increase in accuracy. The increase in accuracy will typically be too small to observe in any practical system.
 
 ## Examples
 
