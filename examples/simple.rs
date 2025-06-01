@@ -1,4 +1,4 @@
-use fusion_ahrs::FusionAhrs;
+use fusion_ahrs::Ahrs;
 use nalgebra::Vector3;
 use plotters::prelude::*;
 use serde::Deserialize;
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Process sensor data
-    let mut ahrs = FusionAhrs::new();
+    let mut ahrs = Ahrs::new();
     let mut euler_angles = Vec::new();
 
     for data in &sensor_data {
@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         ahrs.update_no_magnetometer(gyroscope, accelerometer, 1.0 / SAMPLE_RATE);
 
-        let quaternion = ahrs.get_quaternion();
+        let quaternion = ahrs.quaternion();
         let (roll, pitch, yaw) = quaternion.euler_angles();
         
         euler_angles.push((

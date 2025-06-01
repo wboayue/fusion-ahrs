@@ -1,4 +1,4 @@
-use fusion_ahrs::{FusionAhrs, FusionOffset, FusionSettings, FusionConvention};
+use fusion_ahrs::{Ahrs, Offset, AhrsSettings, Convention, OffsetSettings};
 use nalgebra::Vector3;
 use plotters::prelude::*;
 use serde::Deserialize;
@@ -41,12 +41,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Instantiate algorithms
-    let mut offset = FusionOffset::new(SAMPLE_RATE);
-    let mut ahrs = FusionAhrs::new();
+    let mut offset = Offset::new(OffsetSettings::default());
+    let mut ahrs = Ahrs::new();
 
     // Configure AHRS settings to match Python example
-    let settings = FusionSettings {
-        convention: FusionConvention::Nwu,
+    let settings = AhrsSettings {
+        convention: Convention::Nwu,
         gain: 0.5,
         gyroscope_range: 2000.0,
         acceleration_rejection: 10.0,
@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ahrs.update(gyroscope, accelerometer, magnetometer, delta_times[i]);
 
         // Get results
-        let quaternion = ahrs.get_quaternion();
+        let quaternion = ahrs.quaternion();
         let (roll, pitch, yaw) = quaternion.euler_angles();
         
         euler_angles.push((
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ));
 
         // Get internal states
-        let states = ahrs.get_internal_states();
+        let states = ahrs.internal_states();
         internal_states.push((
             states.acceleration_error,
             if states.accelerometer_ignored { 1.0 } else { 0.0 },
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ));
 
         // Get flags
-        let ahrs_flags = ahrs.get_flags();
+        let ahrs_flags = ahrs.flags();
         flags.push((
             if ahrs_flags.initialising { 1.0 } else { 0.0 },
             if ahrs_flags.angular_rate_recovery { 1.0 } else { 0.0 },

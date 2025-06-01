@@ -297,14 +297,13 @@ This will use standard square root operations for all normalisation calculations
 
 The library includes comprehensive examples:
 
-- `simple_example.rs` - Basic AHRS usage with sample data
-- `advanced_example.rs` - Complete sensor fusion with calibration and offset correction
-- `embedded_example.rs` - No-std usage for embedded systems
+- `simple.rs` - Basic AHRS usage with sample data
+- `advanced.rs` - Complete sensor fusion with calibration and offset correction
 
 Run examples with:
 
 ```bash
-cargo run --example simple_example
+cargo run --example simple
 ```
 
 ## Performance
