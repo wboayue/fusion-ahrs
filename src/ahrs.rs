@@ -1,8 +1,8 @@
 //! Main AHRS algorithm implementation for the Fusion AHRS library
 
-use nalgebra::{UnitQuaternion, Vector3, Quaternion};
-use crate::types::{AhrsSettings, AhrsInternalStates, AhrsFlags, Convention};
-use crate::math::{Vector3Ext, DEG_TO_RAD};
+use crate::math::{DEG_TO_RAD, Vector3Ext};
+use crate::types::{AhrsFlags, AhrsInternalStates, AhrsSettings, Convention};
+use nalgebra::{Quaternion, UnitQuaternion, Vector3};
 
 /// AHRS algorithm constants
 const INITIAL_GAIN: f32 = 10.0;
@@ -11,8 +11,8 @@ const GYROSCOPE_RANGE_FACTOR: f32 = 0.98;
 const RECOVERY_DECREMENT: i32 = 9;
 
 /// Main AHRS algorithm structure
-/// 
-/// Implements a complementary filter that fuses gyroscope, accelerometer, 
+///
+/// Implements a complementary filter that fuses gyroscope, accelerometer,
 /// and magnetometer data to estimate orientation. Features automatic sensor
 /// rejection during motion/interference and recovery mechanisms.
 pub struct Ahrs {
@@ -81,7 +81,7 @@ impl Ahrs {
             magnetic_rejection_squared: 0.0,
             gyroscope_range_threshold: 0.0,
         };
-        
+
         ahrs.process_settings();
         ahrs.initialise();
         ahrs
@@ -93,7 +93,7 @@ impl Ahrs {
         self.accelerometer = Vector3::zeros();
         self.initialising = true;
         self.ramped_gain = INITIAL_GAIN;
-        self.ramped_gain_step = 0.0; // Will be set when sample rate is known
+        self.ramped_gain_step = (INITIAL_GAIN - self.settings.gain) / INITIALISATION_PERIOD;
         self.angular_rate_recovery = false;
         self.half_accelerometer_feedback = Vector3::zeros();
         self.half_magnetometer_feedback = Vector3::zeros();
@@ -122,7 +122,7 @@ impl Ahrs {
     }
 
     /// Update AHRS with gyroscope, accelerometer, and magnetometer data
-    /// 
+    ///
     /// # Arguments
     /// * `gyroscope` - Gyroscope reading in degrees per second
     /// * `accelerometer` - Accelerometer reading in g
@@ -137,116 +137,123 @@ impl Ahrs {
     ) {
         // Store accelerometer for linear acceleration calculation
         self.accelerometer = accelerometer;
-        
-        // Set up gain ramping step if not initialized
-        if self.ramped_gain_step == 0.0 && delta_time > 0.0 {
-            self.ramped_gain_step = (INITIAL_GAIN - self.settings.gain) / INITIALISATION_PERIOD * delta_time;
+
+        // Reinitialise if gyroscope range exceeded
+        if (gyroscope.x.abs() > self.gyroscope_range_threshold)
+            || (gyroscope.y.abs() > self.gyroscope_range_threshold)
+            || (gyroscope.z.abs() > self.gyroscope_range_threshold)
+        {
+            let quaternion = self.quaternion;
+            self.initialise();
+            self.quaternion = quaternion;
+            self.angular_rate_recovery = true;
         }
-        
-        // Check for gyroscope overflow
-        if self.gyroscope_range_threshold > 0.0 {
-            let gyroscope_magnitude = gyroscope.magnitude();
-            if gyroscope_magnitude > self.gyroscope_range_threshold {
-                self.angular_rate_recovery = true;
-                self.initialising = true;
-                self.ramped_gain = INITIAL_GAIN;
-            }
-        }
-        
-        // Ramp down gain during initialization
+
+        // Ramp down gain during initialization - match C implementation exactly
         if self.initialising {
-            if self.ramped_gain > self.settings.gain {
-                self.ramped_gain -= self.ramped_gain_step;
-                if self.ramped_gain < self.settings.gain {
-                    self.ramped_gain = self.settings.gain;
-                }
-            } else {
+            self.ramped_gain -= self.ramped_gain_step * delta_time;
+            if (self.ramped_gain < self.settings.gain) || (self.settings.gain == 0.0) {
+                self.ramped_gain = self.settings.gain;
                 self.initialising = false;
                 self.angular_rate_recovery = false;
             }
         }
-        
+
         // Calculate gravity direction in sensor frame
         let half_gravity = self.calculate_half_gravity();
-        
+
         // Calculate accelerometer feedback
-        self.half_accelerometer_feedback = Vector3::zeros();
-        if !self.accelerometer_ignored {
+        let mut half_accelerometer_feedback = Vector3::zeros();
+        self.accelerometer_ignored = true;
+        if accelerometer.magnitude() > 0.0 {
             let accelerometer_normalized = accelerometer.safe_normalize();
-            if accelerometer_normalized.magnitude() > 0.0 {
-                let feedback = self.calculate_feedback(accelerometer_normalized, half_gravity);
-                let error_squared = feedback.magnitude_squared();
-                
-                if error_squared <= self.acceleration_rejection_squared {
-                    // Accept accelerometer reading
-                    self.half_accelerometer_feedback = feedback * 0.5;
-                    if self.acceleration_recovery_trigger > 0 {
-                        self.acceleration_recovery_trigger -= RECOVERY_DECREMENT;
-                        if self.acceleration_recovery_trigger < 0 {
-                            self.acceleration_recovery_trigger = 0;
-                        }
-                    }
-                } else if !self.initialising {
-                    // Reject accelerometer reading
-                    self.acceleration_recovery_trigger += 1;
-                    if self.acceleration_recovery_trigger as u32 > self.acceleration_recovery_timeout {
-                        self.acceleration_recovery_trigger = 0;
-                        self.accelerometer_ignored = true;
-                    }
-                }
-            }
-        } else {
-            // Handle acceleration recovery
-            if self.acceleration_recovery_trigger > 0 {
-                self.acceleration_recovery_trigger -= 1;
-            } else {
+
+            // Calculate accelerometer feedback scaled by 0.5
+            self.half_accelerometer_feedback =
+                self.calculate_feedback(accelerometer_normalized, half_gravity);
+
+            // Don't ignore accelerometer if acceleration error below threshold
+            if self.initialising
+                || (self.half_accelerometer_feedback.magnitude_squared()
+                    <= self.acceleration_rejection_squared)
+            {
                 self.accelerometer_ignored = false;
-            }
-        }
-        
-        // Calculate magnetic field direction in sensor frame
-        let half_magnetic = self.calculate_half_magnetic();
-        
-        // Calculate magnetometer feedback
-        self.half_magnetometer_feedback = Vector3::zeros();
-        if !self.magnetometer_ignored && magnetometer.magnitude() > 0.0 {
-            let magnetometer_normalized = magnetometer.safe_normalize();
-            let feedback = self.calculate_feedback(magnetometer_normalized, half_magnetic);
-            let error_squared = feedback.magnitude_squared();
-            
-            if error_squared <= self.magnetic_rejection_squared {
-                // Accept magnetometer reading
-                self.half_magnetometer_feedback = feedback * 0.5;
-                if self.magnetic_recovery_trigger > 0 {
-                    self.magnetic_recovery_trigger -= RECOVERY_DECREMENT;
-                    if self.magnetic_recovery_trigger < 0 {
-                        self.magnetic_recovery_trigger = 0;
-                    }
-                }
-            } else if !self.initialising {
-                // Reject magnetometer reading
-                self.magnetic_recovery_trigger += 1;
-                if self.magnetic_recovery_trigger as u32 > self.magnetic_recovery_timeout {
-                    self.magnetic_recovery_trigger = 0;
-                    self.magnetometer_ignored = true;
-                }
-            }
-        } else if self.magnetometer_ignored {
-            // Handle magnetic recovery
-            if self.magnetic_recovery_trigger > 0 {
-                self.magnetic_recovery_trigger -= 1;
+                self.acceleration_recovery_trigger -= RECOVERY_DECREMENT;
             } else {
-                self.magnetometer_ignored = false;
+                self.acceleration_recovery_trigger += 1;
+            }
+
+            // Don't ignore accelerometer during acceleration recovery
+            if self.acceleration_recovery_trigger > self.acceleration_recovery_timeout as i32 {
+                self.acceleration_recovery_timeout = 0;
+                self.accelerometer_ignored = false;
+            } else {
+                self.acceleration_recovery_timeout = self.settings.recovery_trigger_period;
+            }
+
+            // Clamp recovery trigger
+            self.acceleration_recovery_trigger = self
+                .acceleration_recovery_trigger
+                .clamp(0, self.settings.recovery_trigger_period as i32);
+
+            // Apply accelerometer feedback
+            if !self.accelerometer_ignored {
+                half_accelerometer_feedback = self.half_accelerometer_feedback * 0.5;
             }
         }
-        
+
+        // Note: half_magnetic is calculated inside magnetometer processing block
+
+        // Calculate magnetometer feedback
+        let mut half_magnetometer_feedback = Vector3::zeros();
+        self.magnetometer_ignored = true;
+        if magnetometer.magnitude() > 0.0 {
+            // Calculate direction of magnetic field indicated by algorithm
+            let half_magnetic = self.calculate_half_magnetic();
+
+            // Calculate magnetometer feedback scaled by 0.5 with cross product preprocessing
+            let cross_product = half_gravity.cross(&magnetometer);
+            let magnetometer_normalized = cross_product.safe_normalize();
+            self.half_magnetometer_feedback =
+                self.calculate_feedback(magnetometer_normalized, half_magnetic);
+
+            // Don't ignore magnetometer if magnetic error below threshold
+            if self.initialising
+                || (self.half_magnetometer_feedback.magnitude_squared()
+                    <= self.magnetic_rejection_squared)
+            {
+                self.magnetometer_ignored = false;
+                self.magnetic_recovery_trigger -= RECOVERY_DECREMENT;
+            } else {
+                self.magnetic_recovery_trigger += 1;
+            }
+
+            // Don't ignore magnetometer during magnetic recovery
+            if self.magnetic_recovery_trigger > self.magnetic_recovery_timeout as i32 {
+                self.magnetic_recovery_timeout = 0;
+                self.magnetometer_ignored = false;
+            } else {
+                self.magnetic_recovery_timeout = self.settings.recovery_trigger_period;
+            }
+
+            // Clamp recovery trigger
+            self.magnetic_recovery_trigger = self
+                .magnetic_recovery_trigger
+                .clamp(0, self.settings.recovery_trigger_period as i32);
+
+            // Apply magnetometer feedback
+            if !self.magnetometer_ignored {
+                half_magnetometer_feedback = self.half_magnetometer_feedback * 0.5;
+            }
+        }
+
         // Convert gyroscope to half-radians per second
         let half_gyroscope = gyroscope * (DEG_TO_RAD * 0.5);
-        
+
         // Apply feedback to gyroscope
-        let adjusted_half_gyroscope = half_gyroscope + 
-            (self.half_accelerometer_feedback + self.half_magnetometer_feedback) * self.ramped_gain;
-        
+        let adjusted_half_gyroscope = half_gyroscope
+            + (half_accelerometer_feedback + half_magnetometer_feedback) * self.ramped_gain;
+
         // Integrate quaternion
         self.integrate_quaternion(adjusted_half_gyroscope, delta_time);
     }
@@ -260,11 +267,11 @@ impl Ahrs {
     ) {
         // Update with zero magnetometer
         self.update(gyroscope, accelerometer, Vector3::zeros(), delta_time);
-        
+
         // Force magnetometer to be ignored
         self.magnetometer_ignored = true;
         self.half_magnetometer_feedback = Vector3::zeros();
-        
+
         // Zero heading during initialization to prevent drift
         if self.initialising {
             self.zero_heading();
@@ -283,14 +290,14 @@ impl Ahrs {
         let heading_rad = heading * DEG_TO_RAD;
         let cos_heading = heading_rad.cos();
         let sin_heading = heading_rad.sin();
-        
+
         // Use current roll and pitch to calculate expected magnetometer
         let gravity = self.gravity();
         let east = Vector3::new(-gravity.y, gravity.x, 0.0).safe_normalize();
         let north = east.cross(&gravity).safe_normalize();
-        
+
         let synthetic_magnetometer = north * cos_heading + east * sin_heading;
-        
+
         // Update with synthetic magnetometer
         self.update(gyroscope, accelerometer, synthetic_magnetometer, delta_time);
     }
@@ -345,63 +352,79 @@ impl Ahrs {
     /// Set heading angle directly
     pub fn set_heading(&mut self, heading: f32) {
         let heading_rad = heading * DEG_TO_RAD;
-        
+
         // Extract current roll and pitch
         let (roll, pitch, _) = self.quaternion.euler_angles();
-        
+
         // Create new quaternion with same roll/pitch but new heading
         self.quaternion = UnitQuaternion::from_euler_angles(roll, pitch, heading_rad);
     }
-    
+
     // Private helper methods
-    
+
     /// Process settings and calculate derived values
     fn process_settings(&mut self) {
-        // Process gyroscope range
-        self.gyroscope_range_threshold = if self.settings.gyroscope_range > 0.0 {
-            self.settings.gyroscope_range * GYROSCOPE_RANGE_FACTOR
+        // Process gyroscope range - match C implementation exactly
+        self.gyroscope_range_threshold = if self.settings.gyroscope_range == 0.0 {
+            f32::MAX
         } else {
-            0.0
+            self.settings.gyroscope_range * GYROSCOPE_RANGE_FACTOR
         };
-        
-        // Process rejection thresholds (convert to squared for efficiency)
-        let accel_rad = self.settings.acceleration_rejection * DEG_TO_RAD;
-        self.acceleration_rejection_squared = (0.5 * accel_rad.sin()).powi(2);
-        
-        let mag_rad = self.settings.magnetic_rejection * DEG_TO_RAD;
-        self.magnetic_rejection_squared = (0.5 * mag_rad.sin()).powi(2);
-        
+
+        // Process rejection thresholds (convert to squared for efficiency) - match C implementation
+        self.acceleration_rejection_squared = if self.settings.acceleration_rejection == 0.0 {
+            f32::MAX
+        } else {
+            let accel_rad = self.settings.acceleration_rejection * DEG_TO_RAD;
+            (0.5 * accel_rad.sin()).powi(2)
+        };
+
+        self.magnetic_rejection_squared = if self.settings.magnetic_rejection == 0.0 {
+            f32::MAX
+        } else {
+            let mag_rad = self.settings.magnetic_rejection * DEG_TO_RAD;
+            (0.5 * mag_rad.sin()).powi(2)
+        };
+
+        // Disable rejection features if gain is zero or recovery trigger period is zero
+        if self.settings.gain == 0.0 || self.settings.recovery_trigger_period == 0 {
+            self.acceleration_rejection_squared = f32::MAX;
+            self.magnetic_rejection_squared = f32::MAX;
+        }
+
         // Set recovery timeouts
         self.acceleration_recovery_timeout = self.settings.recovery_trigger_period;
         self.magnetic_recovery_timeout = self.settings.recovery_trigger_period;
+
+        // Set ramped gain step if not initializing
+        if !self.initialising {
+            self.ramped_gain = self.settings.gain;
+        }
+        self.ramped_gain_step = (INITIAL_GAIN - self.settings.gain) / INITIALISATION_PERIOD;
     }
-    
+
     /// Calculate half gravity vector in sensor frame based on current quaternion
     fn calculate_half_gravity(&self) -> Vector3<f32> {
         let q = self.quaternion.as_ref();
         let qw = q.w;
         let qx = q.i;
-        let qy = q.j; 
+        let qy = q.j;
         let qz = q.k;
-        
+
         match self.settings.convention {
-            Convention::Nwu | Convention::Enu => {
-                Vector3::new(
-                    qx * qz - qw * qy,
-                    qy * qz + qw * qx,
-                    qw * qw - 0.5 + qz * qz
-                )
-            },
-            Convention::Ned => {
-                Vector3::new(
-                    qw * qy - qx * qz,
-                    -(qy * qz + qw * qx),
-                    0.5 - qw * qw - qz * qz
-                )
-            }
+            Convention::Nwu | Convention::Enu => Vector3::new(
+                qx * qz - qw * qy,
+                qy * qz + qw * qx,
+                qw * qw - 0.5 + qz * qz,
+            ),
+            Convention::Ned => Vector3::new(
+                qw * qy - qx * qz,
+                -(qy * qz + qw * qx),
+                0.5 - qw * qw - qz * qz,
+            ),
         }
     }
-    
+
     /// Calculate half magnetic field vector in sensor frame
     fn calculate_half_magnetic(&self) -> Vector3<f32> {
         let q = self.quaternion.as_ref();
@@ -409,39 +432,39 @@ impl Ahrs {
         let qx = q.i;
         let qy = q.j;
         let qz = q.k;
-        
+
         match self.settings.convention {
             Convention::Nwu => {
                 // Second column of rotation matrix * 0.5
                 Vector3::new(
                     qw * qy + qx * qz,
                     0.5 - qx * qx - qz * qz,
-                    qy * qz - qw * qx
+                    qy * qz - qw * qx,
                 )
-            },
+            }
             Convention::Enu => {
                 // First column of rotation matrix * -0.5
                 Vector3::new(
                     -(0.5 - qy * qy - qz * qz),
                     -(qx * qy - qw * qz),
-                    -(qx * qz + qw * qy)
+                    -(qx * qz + qw * qy),
                 )
-            },
+            }
             Convention::Ned => {
                 // Second column of rotation matrix * -0.5
                 Vector3::new(
                     -(qw * qy + qx * qz),
                     -(0.5 - qx * qx - qz * qz),
-                    -(qy * qz - qw * qx)
+                    -(qy * qz - qw * qx),
                 )
             }
         }
     }
-    
+
     /// Calculate feedback vector between sensor reading and reference
     fn calculate_feedback(&self, sensor: Vector3<f32>, reference: Vector3<f32>) -> Vector3<f32> {
         let cross = sensor.cross(&reference);
-        
+
         // Check if vectors are opposing (dot product < 0)
         if sensor.dot(&reference) < 0.0 {
             // Normalize cross product for opposing vectors
@@ -450,22 +473,22 @@ impl Ahrs {
             cross
         }
     }
-    
+
     /// Integrate quaternion using gyroscope reading
     fn integrate_quaternion(&mut self, half_gyroscope: Vector3<f32>, delta_time: f32) {
         // Create quaternion from gyroscope reading
         let gyro_quat = Quaternion::from_parts(0.0, half_gyroscope);
-        
+
         // Quaternion derivative: dq/dt = 0.5 * q * ω
         let quaternion_derivative = self.quaternion.as_ref() * gyro_quat;
-        
+
         // Integrate using first-order approximation
         let new_quaternion = self.quaternion.as_ref() + quaternion_derivative * delta_time;
-        
+
         // Normalize to maintain unit quaternion
         self.quaternion = UnitQuaternion::from_quaternion(new_quaternion);
     }
-    
+
     /// Zero the heading while preserving roll and pitch
     fn zero_heading(&mut self) {
         let (roll, pitch, _) = self.quaternion.euler_angles();
@@ -482,46 +505,46 @@ impl Default for Ahrs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_new_ahrs() {
         let ahrs = Ahrs::new();
         assert_eq!(ahrs.quaternion(), UnitQuaternion::identity());
         assert!(ahrs.flags().initialising);
     }
-    
+
     #[test]
     fn test_ahrs_initialization() {
         let mut ahrs = Ahrs::new();
-        
+
         // Should start in initializing state
         assert!(ahrs.flags().initialising);
-        
+
         // Update for initialization period to complete ramping
         let gyro = Vector3::zeros();
         let accel = Vector3::new(0.0, 0.0, 1.0);
         let mag = Vector3::new(1.0, 0.0, 0.0);
         let delta_time = 0.01; // 10ms
-        
+
         // Simulate 4 seconds at 100Hz to complete initialization
         for _ in 0..400 {
             ahrs.update(gyro, accel, mag, delta_time);
         }
-        
+
         // Should no longer be initializing
         assert!(!ahrs.flags().initialising);
     }
-    
+
     #[test]
     fn test_gravity_calculation() {
         let ahrs = Ahrs::new();
         let gravity = ahrs.gravity();
-        
+
         // Should be unit vector pointing up in NWU convention
         assert!((gravity.magnitude() - 1.0).abs() < 1e-6);
         assert!((gravity.z - 1.0).abs() < 1e-6);
     }
-    
+
     #[test]
     fn test_gyroscope_overflow_detection() {
         let settings = AhrsSettings {
@@ -529,25 +552,25 @@ mod tests {
             ..Default::default()
         };
         let mut ahrs = Ahrs::with_settings(settings);
-        
+
         // Complete initialization first
         let normal_gyro = Vector3::zeros();
         let accel = Vector3::new(0.0, 0.0, 1.0);
         let mag = Vector3::new(1.0, 0.0, 0.0);
-        
+
         for _ in 0..400 {
             ahrs.update(normal_gyro, accel, mag, 0.01);
         }
         assert!(!ahrs.flags().initialising);
-        
+
         // Now test overflow
         let overflow_gyro = Vector3::new(600.0, 0.0, 0.0); // Exceeds 500 deg/s
         ahrs.update(overflow_gyro, accel, mag, 0.01);
-        
+
         assert!(ahrs.flags().angular_rate_recovery);
         assert!(ahrs.flags().initialising); // Should restart initialization
     }
-    
+
     #[test]
     fn test_accelerometer_rejection() {
         let settings = AhrsSettings {
@@ -555,38 +578,41 @@ mod tests {
             recovery_trigger_period: 100,
             ..Default::default()
         };
-        
+
         let mut ahrs = Ahrs::with_settings(settings);
-        
+
         // Complete initialization first
         let gyro = Vector3::zeros();
         let normal_accel = Vector3::new(0.0, 0.0, 1.0); // Normal gravity
         let mag = Vector3::new(1.0, 0.0, 0.0);
-        
+
         for _ in 0..400 {
             ahrs.update(gyro, normal_accel, mag, 0.01);
         }
-        
+
         // Test that normal acceleration is accepted
         let states = ahrs.internal_states();
         assert!(!states.accelerometer_ignored);
-        
+
         // Apply large acceleration (should be rejected after enough samples)
         let large_accel = Vector3::new(2.0, 2.0, 1.0); // Large acceleration indicating motion
-        
+
         // Apply bad readings repeatedly to eventually trigger rejection
         let mut rejected = false;
         for _i in 0..150 {
             ahrs.update(gyro, large_accel, mag, 0.01);
             let states = ahrs.internal_states();
-            
+
             if states.accelerometer_ignored || states.acceleration_recovery_trigger > 50.0 {
                 rejected = true;
                 break;
             }
         }
-        
+
         // Should eventually trigger rejection mechanism
-        assert!(rejected, "Accelerometer should be rejected for large accelerations");
+        assert!(
+            rejected,
+            "Accelerometer should be rejected for large accelerations"
+        );
     }
 }

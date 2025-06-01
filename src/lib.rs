@@ -23,31 +23,30 @@
 //! use fusion_ahrs::{Ahrs, AhrsSettings};
 //!
 //! let mut ahrs = Ahrs::new();
-//! 
+//!
 //! // Sensor readings
 //! let gyroscope = Vector3::new(0.1, 0.2, 0.3);      // deg/s
 //! let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
 //! let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // µT
-//! 
+//!
 //! // Update AHRS
 //! ahrs.update(gyroscope, accelerometer, magnetometer, 0.01); // 10ms
-//! 
+//!
 //! // Get orientation
 //! let quaternion = ahrs.quaternion();
 //! ```
 
-mod types;
-mod math;
-pub mod calibration;
-pub mod offset;
-pub mod compass;
 mod ahrs;
+pub mod calibration;
+pub mod compass;
+mod math;
+pub mod offset;
+mod types;
 
 // Re-export all public types and functions
-pub use types::*;
-pub use math::{Vector3Ext, QuaternionExt, DEG_TO_RAD, RAD_TO_DEG};
-pub use calibration::{calibrate_inertial, calibrate_magnetic};
-pub use offset::Offset;
-pub use compass::calculate_heading;
 pub use ahrs::Ahrs;
-
+pub use calibration::{calibrate_inertial, calibrate_magnetic};
+pub use compass::calculate_heading;
+pub use math::{DEG_TO_RAD, QuaternionExt, RAD_TO_DEG, Vector3Ext};
+pub use offset::Offset;
+pub use types::*;
