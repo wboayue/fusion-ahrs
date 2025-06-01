@@ -350,13 +350,6 @@ impl Default for Ahrs {
     }
 }
 
-// Type aliases for backward compatibility (deprecated)
-#[deprecated(since = "1.1.0", note = "Use `Offset` instead")]
-pub type FusionOffset = Offset;
-#[deprecated(since = "1.1.0", note = "Use `AhrsSettings` instead")]
-pub type FusionSettings = AhrsSettings;
-#[deprecated(since = "1.1.0", note = "Use `Convention` instead")]
-pub type FusionConvention = Convention;
 
 #[cfg(test)]
 mod tests {
