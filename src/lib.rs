@@ -107,8 +107,8 @@ pub struct Offset {
 
 impl Offset {
     /// Initialize offset correction with the given sample rate
-    pub fn new(sample_rate: u32) -> Self {
-        let timeout = sample_rate * 5; // 5 second timeout
+    pub fn new(sample_rate: f32) -> Self {
+        let timeout = (sample_rate * 5.0) as u32; // 5 second timeout
         Self {
             filter_coefficient: 0.01, // 1% filter coefficient
             timeout,
@@ -313,6 +313,11 @@ impl Default for FusionAhrs {
         Self::new()
     }
 }
+
+// Type aliases for compatibility with examples
+pub type FusionOffset = Offset;
+pub type FusionSettings = AhrsSettings;
+pub type FusionConvention = Convention;
 
 #[cfg(test)]
 mod tests {

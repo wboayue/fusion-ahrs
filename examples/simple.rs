@@ -71,7 +71,7 @@ fn create_plots(sensor_data: &[SensorData], euler_angles: &[(f32, f32, f32)]) ->
     let root = BitMapBackend::new("sensor_plots.png", (800, 900)).into_drawing_area();
     root.fill(&WHITE)?;
     
-    let (upper, lower) = root.split_evenly((3, 1));
+    let upper = root.split_evenly((3, 1));
     
     // Plot gyroscope data
     let mut gyro_chart = ChartBuilder::on(&upper[0])
