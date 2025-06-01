@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Instantiate algorithms
-    let mut offset = Offset::new(OffsetSettings::default());
+    let mut offset = Offset::new(OffsetSettings::default(), SAMPLE_RATE);
     let mut ahrs = Ahrs::new();
 
     // Configure AHRS settings to match Python example
