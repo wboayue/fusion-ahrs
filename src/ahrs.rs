@@ -55,11 +55,52 @@ pub struct Ahrs {
 
 impl Ahrs {
     /// Create a new AHRS instance with default settings
+    ///
+    /// This creates an AHRS algorithm with the default settings:
+    /// - Convention: NWU (North-West-Up)
+    /// - Gain: 0.5
+    /// - Gyroscope range: 2000 deg/s
+    /// - Acceleration rejection: 10°
+    /// - Magnetic rejection: 20°
+    /// - Recovery trigger period: 2560 samples (5s at 512Hz)
+    ///
+    /// The algorithm will start in initialization mode with ramped gain.
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// assert!(ahrs.flags().initialising);
+    /// ```
     pub fn new() -> Self {
         Self::with_settings(AhrsSettings::default())
     }
 
     /// Create a new AHRS instance with specified settings
+    ///
+    /// This allows customization of all algorithm parameters including
+    /// coordinate convention, gain, gyroscope range, and rejection thresholds.
+    ///
+    /// # Arguments
+    /// * `settings` - Configuration for the AHRS algorithm
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
+    /// 
+    /// let settings = AhrsSettings {
+    ///     convention: Convention::Enu,
+    ///     gain: 0.75,
+    ///     gyroscope_range: 1000.0,
+    ///     acceleration_rejection: 15.0,
+    ///     magnetic_rejection: 25.0,
+    ///     recovery_trigger_period: 1024,
+    /// };
+    /// 
+    /// let mut ahrs = Ahrs::with_settings(settings);
+    /// assert_eq!(ahrs.get_settings().gain, 0.75);
+    /// ```
     pub fn with_settings(settings: AhrsSettings) -> Self {
         let mut ahrs = Ahrs {
             settings,
@@ -88,6 +129,25 @@ impl Ahrs {
     }
 
     /// Initialize/reset the AHRS algorithm
+    ///
+    /// Resets the algorithm to its initial state:
+    /// - Sets quaternion to identity (no rotation)
+    /// - Clears all internal state variables
+    /// - Enters initialization mode with ramped gain
+    /// - Resets all recovery mechanisms
+    ///
+    /// This is automatically called during construction and can be used
+    /// to restart the algorithm if needed.
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// // ... use the AHRS ...
+    /// ahrs.initialise(); // Reset to initial state
+    /// assert!(ahrs.flags().initialising);
+    /// ```
     pub fn initialise(&mut self) {
         self.quaternion = UnitQuaternion::identity();
         self.accelerometer = Vector3::zeros();
@@ -106,28 +166,96 @@ impl Ahrs {
     }
 
     /// Reset the algorithm (alias for initialise)
+    ///
+    /// Convenience method that calls `initialise()`. Useful for
+    /// applications that prefer the term "reset" over "initialise".
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// ahrs.reset(); // Same as ahrs.initialise()
+    /// ```
     pub fn reset(&mut self) {
         self.initialise();
     }
 
     /// Update algorithm settings
+    ///
+    /// Changes the algorithm configuration and recalculates derived values.
+    /// If not currently initializing, the gain is updated immediately.
+    ///
+    /// # Arguments
+    /// * `settings` - New configuration to apply
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::{Ahrs, AhrsSettings};
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// let mut settings = ahrs.get_settings();
+    /// settings.gain = 0.25; // Lower gain for more stable operation
+    /// ahrs.set_settings(settings);
+    /// assert_eq!(ahrs.get_settings().gain, 0.25);
+    /// ```
     pub fn set_settings(&mut self, settings: AhrsSettings) {
         self.settings = settings;
         self.process_settings();
     }
 
     /// Get current algorithm settings
+    ///
+    /// Returns a copy of the current algorithm configuration.
+    ///
+    /// # Returns
+    /// Current AHRS settings
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::{Ahrs, Convention};
+    /// 
+    /// let ahrs = Ahrs::new();
+    /// let settings = ahrs.get_settings();
+    /// assert_eq!(settings.convention, Convention::Nwu);
+    /// assert_eq!(settings.gain, 0.5);
+    /// ```
     pub fn get_settings(&self) -> AhrsSettings {
         self.settings
     }
 
     /// Update AHRS with gyroscope, accelerometer, and magnetometer data
     ///
+    /// This is the main algorithm function that fuses all sensor readings
+    /// to estimate orientation. The algorithm automatically:
+    /// - Detects and rejects accelerometer readings during motion
+    /// - Detects and rejects magnetometer readings during magnetic interference
+    /// - Manages initialization with ramped gain
+    /// - Handles gyroscope overflow detection and recovery
+    ///
     /// # Arguments
     /// * `gyroscope` - Gyroscope reading in degrees per second
-    /// * `accelerometer` - Accelerometer reading in g
-    /// * `magnetometer` - Magnetometer reading in µT
-    /// * `delta_time` - Time step in seconds
+    /// * `accelerometer` - Accelerometer reading in g (normalized gravity)
+    /// * `magnetometer` - Magnetometer reading in µT (any units, will be normalized)
+    /// * `delta_time` - Time step in seconds since last update
+    ///
+    /// # Example
+    /// ```
+    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// 
+    /// // Typical sensor readings
+    /// let gyro = Vector3::new(0.1, -0.2, 0.05);     // Small rotation rates
+    /// let accel = Vector3::new(0.0, 0.0, 1.0);      // Gravity pointing up (NWU)
+    /// let mag = Vector3::new(25.0, 2.0, -15.0);     // Earth's magnetic field
+    /// 
+    /// ahrs.update(gyro, accel, mag, 0.01);  // 10ms time step (100Hz)
+    /// 
+    /// let orientation = ahrs.quaternion();
+    /// let gravity = ahrs.gravity();
+    /// ```
     pub fn update(
         &mut self,
         gyroscope: Vector3<f32>,
@@ -259,6 +387,32 @@ impl Ahrs {
     }
 
     /// Update AHRS without magnetometer (gyroscope and accelerometer only)
+    ///
+    /// Use this when magnetometer data is unavailable or unreliable.
+    /// The algorithm will still estimate roll and pitch from the accelerometer
+    /// but heading will drift over time. During initialization, heading is
+    /// automatically zeroed to prevent drift.
+    ///
+    /// # Arguments
+    /// * `gyroscope` - Gyroscope reading in degrees per second
+    /// * `accelerometer` - Accelerometer reading in g
+    /// * `delta_time` - Time step in seconds since last update
+    ///
+    /// # Example
+    /// ```
+    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// 
+    /// let gyro = Vector3::new(0.1, -0.2, 0.05);
+    /// let accel = Vector3::new(0.0, 0.0, 1.0);
+    /// 
+    /// ahrs.update_no_magnetometer(gyro, accel, 0.01);
+    /// 
+    /// // Roll and pitch will be accurate, heading may drift
+    /// let euler = ahrs.quaternion().euler_angles();
+    /// ```
     pub fn update_no_magnetometer(
         &mut self,
         gyroscope: Vector3<f32>,
@@ -279,6 +433,30 @@ impl Ahrs {
     }
 
     /// Update AHRS with external heading source
+    ///
+    /// Use this when you have an external heading reference (GPS, compass,
+    /// etc.) instead of a magnetometer. The function synthesizes a virtual
+    /// magnetometer reading from the provided heading angle.
+    ///
+    /// # Arguments
+    /// * `gyroscope` - Gyroscope reading in degrees per second
+    /// * `accelerometer` - Accelerometer reading in g
+    /// * `heading` - Heading angle in degrees (0° = North, positive = clockwise)
+    /// * `delta_time` - Time step in seconds since last update
+    ///
+    /// # Example
+    /// ```
+    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// 
+    /// let gyro = Vector3::new(0.1, -0.2, 0.05);
+    /// let accel = Vector3::new(0.0, 0.0, 1.0);
+    /// let heading_from_gps = 45.0; // 45° (northeast)
+    /// 
+    /// ahrs.update_external_heading(gyro, accel, heading_from_gps, 0.01);
+    /// ```
     pub fn update_external_heading(
         &mut self,
         gyroscope: Vector3<f32>,
@@ -303,31 +481,160 @@ impl Ahrs {
     }
 
     /// Get current orientation quaternion
+    ///
+    /// Returns the estimated device orientation as a unit quaternion.
+    /// The quaternion represents the rotation from the Earth frame
+    /// to the sensor frame according to the configured convention.
+    ///
+    /// # Returns
+    /// Unit quaternion representing device orientation (WXYZ format)
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let ahrs = Ahrs::new();
+    /// let quaternion = ahrs.quaternion();
+    /// 
+    /// // Convert to Euler angles if needed
+    /// let (roll, pitch, yaw) = quaternion.euler_angles();
+    /// 
+    /// // Or use for transformations
+    /// let sensor_vector = nalgebra::Vector3::new(1.0, 0.0, 0.0);
+    /// let earth_vector = quaternion * sensor_vector;
+    /// ```
     pub fn quaternion(&self) -> UnitQuaternion<f32> {
         self.quaternion
     }
 
     /// Set orientation quaternion directly
+    ///
+    /// Allows direct setting of the device orientation. Useful for
+    /// initialization with a known orientation or for external corrections.
+    ///
+    /// # Arguments
+    /// * `quaternion` - New orientation quaternion
+    ///
+    /// # Example
+    /// ```
+    /// use nalgebra::UnitQuaternion;
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// 
+    /// // Set to 45° rotation around Z-axis
+    /// let rotation = UnitQuaternion::from_euler_angles(0.0, 0.0, 45.0_f32.to_radians());
+    /// ahrs.set_quaternion(rotation);
+    /// 
+    /// assert_eq!(ahrs.quaternion(), rotation);
+    /// ```
     pub fn set_quaternion(&mut self, quaternion: UnitQuaternion<f32>) {
         self.quaternion = quaternion;
     }
 
     /// Get gravity vector in sensor frame
+    ///
+    /// Returns the direction of gravity as measured in the sensor coordinate frame.
+    /// This is the negative of the accelerometer reading when the device is
+    /// stationary (assuming proper calibration).
+    ///
+    /// # Returns
+    /// Gravity vector in sensor frame (unit vector)
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let ahrs = Ahrs::new();
+    /// let gravity = ahrs.gravity();
+    /// 
+    /// // For a level device in NWU convention, gravity points down (-Z)
+    /// // When tilted, gravity will point in different directions
+    /// println!("Gravity: {:?}", gravity);
+    /// ```
     pub fn gravity(&self) -> Vector3<f32> {
         self.calculate_half_gravity() * 2.0
     }
 
     /// Get linear acceleration (acceleration minus gravity)
+    ///
+    /// Calculates the linear acceleration by subtracting the estimated
+    /// gravity vector from the accelerometer reading. This represents
+    /// the motion-induced acceleration in the sensor frame.
+    ///
+    /// # Returns
+    /// Linear acceleration vector in sensor frame (units of g)
+    ///
+    /// # Example
+    /// ```
+    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// 
+    /// // Simulate accelerometer reading with motion
+    /// let accel_with_motion = Vector3::new(0.5, 0.0, 1.0); // 0.5g lateral + gravity
+    /// ahrs.update(Vector3::zeros(), accel_with_motion, Vector3::zeros(), 0.01);
+    /// 
+    /// let linear_accel = ahrs.linear_acceleration();
+    /// // Should show the 0.5g lateral acceleration
+    /// ```
     pub fn linear_acceleration(&self) -> Vector3<f32> {
         self.accelerometer - self.gravity()
     }
 
     /// Get earth-frame acceleration
+    ///
+    /// Transforms the linear acceleration from sensor frame to Earth frame
+    /// using the current orientation estimate. This provides acceleration
+    /// in the global coordinate system.
+    ///
+    /// # Returns
+    /// Linear acceleration vector in Earth frame (units of g)
+    ///
+    /// # Example
+    /// ```
+    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// 
+    /// // Update with some motion
+    /// ahrs.update(
+    ///     Vector3::zeros(),
+    ///     Vector3::new(0.5, 0.0, 1.0),
+    ///     Vector3::zeros(),
+    ///     0.01
+    /// );
+    /// 
+    /// let earth_accel = ahrs.earth_acceleration();
+    /// // Acceleration now expressed in Earth coordinates
+    /// ```
     pub fn earth_acceleration(&self) -> Vector3<f32> {
         self.quaternion * self.linear_acceleration()
     }
 
     /// Get internal algorithm states
+    ///
+    /// Provides diagnostic information about the algorithm's internal state,
+    /// including error measurements and sensor rejection status. Useful
+    /// for monitoring algorithm performance and debugging.
+    ///
+    /// # Returns
+    /// Structure containing internal algorithm diagnostics
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let ahrs = Ahrs::new();
+    /// let states = ahrs.internal_states();
+    /// 
+    /// println!("Acceleration error: {:.2}°", states.acceleration_error);
+    /// println!("Accelerometer ignored: {}", states.accelerometer_ignored);
+    /// println!("Magnetic error: {:.2}°", states.magnetic_error);
+    /// println!("Magnetometer ignored: {}", states.magnetometer_ignored);
+    /// ```
     pub fn internal_states(&self) -> AhrsInternalStates {
         AhrsInternalStates {
             acceleration_error: (self.half_accelerometer_feedback.magnitude() * 2.0).to_degrees(),
@@ -340,6 +647,27 @@ impl Ahrs {
     }
 
     /// Get algorithm flags
+    ///
+    /// Returns status flags indicating the current operating mode of the
+    /// algorithm, including initialization and recovery states.
+    ///
+    /// # Returns
+    /// Structure containing algorithm status flags
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let ahrs = Ahrs::new();
+    /// let flags = ahrs.flags();
+    /// 
+    /// if flags.initialising {
+    ///     println!("Algorithm is still initializing");
+    /// }
+    /// if flags.angular_rate_recovery {
+    ///     println!("Recovering from gyroscope overflow");
+    /// }
+    /// ```
     pub fn flags(&self) -> AhrsFlags {
         AhrsFlags {
             initialising: self.initialising,
@@ -350,6 +678,25 @@ impl Ahrs {
     }
 
     /// Set heading angle directly
+    ///
+    /// Sets the heading (yaw) angle while preserving the current roll and pitch.
+    /// Useful for compass calibration or initialization with a known heading.
+    ///
+    /// # Arguments
+    /// * `heading` - New heading angle in degrees (0° = North, positive = clockwise)
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Ahrs;
+    /// 
+    /// let mut ahrs = Ahrs::new();
+    /// 
+    /// // Set heading to face East (90°)
+    /// ahrs.set_heading(90.0);
+    /// 
+    /// let (_, _, yaw) = ahrs.quaternion().euler_angles();
+    /// assert!((yaw.to_degrees() - 90.0).abs() < 1.0);
+    /// ```
     pub fn set_heading(&mut self, heading: f32) {
         let heading_rad = heading * DEG_TO_RAD;
 

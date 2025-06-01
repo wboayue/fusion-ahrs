@@ -1,3 +1,17 @@
+//! Simple AHRS demonstration
+//!
+//! This example demonstrates basic usage of the Fusion AHRS library
+//! with gyroscope and accelerometer data (no magnetometer).
+//!
+//! Features demonstrated:
+//! - Loading sensor data from CSV
+//! - Basic AHRS initialization
+//! - Processing sensor data without magnetometer
+//! - Extracting Euler angles
+//! - Generating visualization plots
+//!
+//! Run with: `cargo run --example simple`
+
 use fusion_ahrs::Ahrs;
 use nalgebra::Vector3;
 use plotters::prelude::*;
@@ -34,6 +48,8 @@ struct SensorData {
 const SAMPLE_RATE: f32 = 100.0; // 100 Hz
 
 fn main() -> Result<(), Box<dyn Error>> {
+    println!("Simple AHRS Example - Processing sensor data without magnetometer");
+    
     // Load sensor data from CSV
     let mut reader = csv::Reader::from_path("testdata/sensor_data.csv")?;
     let mut sensor_data = Vec::new();
@@ -43,29 +59,49 @@ fn main() -> Result<(), Box<dyn Error>> {
         sensor_data.push(record);
     }
 
-    // Process sensor data
+    // Initialize AHRS with default settings
+    // Default: NWU convention, 0.5 gain, 2000 deg/s gyro range
     let mut ahrs = Ahrs::new();
     let mut euler_angles = Vec::new();
+    
+    println!("Processing {} sensor samples at {} Hz...", sensor_data.len(), SAMPLE_RATE);
 
-    for data in &sensor_data {
+    for (i, data) in sensor_data.iter().enumerate() {
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
         let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
 
+        // Update AHRS without magnetometer - heading will drift over time
+        // but roll and pitch will remain accurate
         ahrs.update_no_magnetometer(gyroscope, accelerometer, 1.0 / SAMPLE_RATE);
 
+        // Extract orientation as quaternion and convert to Euler angles
         let quaternion = ahrs.quaternion();
         let (roll, pitch, yaw) = quaternion.euler_angles();
 
         euler_angles.push((roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees()));
+        
+        // Print progress every 1000 samples
+        if i % 1000 == 0 {
+            println!("Processed {} samples, current orientation: roll={:.1}°, pitch={:.1}°, yaw={:.1}°", 
+                i, roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees());
+        }
     }
 
-    // Generate plots
+    // Generate visualization plots
+    println!("Generating plots...");
     create_plots(&sensor_data, &euler_angles)?;
 
-    println!("Plots saved to sensor_plots.png");
+    println!("✓ Plots saved to sensor_plots.png");
+    println!("✓ Processing complete! Open sensor_plots.png to view results.");
     Ok(())
 }
 
+/// Create visualization plots showing sensor data and computed Euler angles
+///
+/// Generates a 3-panel plot showing:
+/// 1. Gyroscope readings (X, Y, Z in deg/s)
+/// 2. Accelerometer readings (X, Y, Z in g)
+/// 3. Computed Euler angles (Roll, Pitch, Yaw in degrees)
 fn create_plots(
     sensor_data: &[SensorData],
     euler_angles: &[(f32, f32, f32)],
