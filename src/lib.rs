@@ -116,13 +116,13 @@ impl Offset {
             gyroscope_offset: Vector3::zeros(),
         }
     }
-    
+
     /// Update offset estimation and return corrected gyroscope reading
     pub fn update(&mut self, gyroscope: Vector3<f32>) -> Vector3<f32> {
         // Placeholder implementation - will be replaced with actual algorithm
         gyroscope - self.gyroscope_offset
     }
-    
+
     /// Get current offset estimate
     pub fn get_offset(&self) -> Vector3<f32> {
         self.gyroscope_offset
@@ -168,7 +168,7 @@ impl FusionAhrs {
     pub fn new() -> Self {
         Self::with_settings(AhrsSettings::default())
     }
-    
+
     /// Create a new AHRS instance with specified settings
     pub fn with_settings(settings: AhrsSettings) -> Self {
         FusionAhrs {
@@ -189,7 +189,7 @@ impl FusionAhrs {
             magnetic_recovery_timeout: 0,
         }
     }
-    
+
     /// Initialize/reset the AHRS algorithm
     pub fn initialise(&mut self) {
         self.quaternion = UnitQuaternion::identity();
@@ -207,17 +207,17 @@ impl FusionAhrs {
         self.magnetic_recovery_trigger = 0;
         self.magnetic_recovery_timeout = 0;
     }
-    
+
     /// Reset the algorithm (alias for initialise)
     pub fn reset(&mut self) {
         self.initialise();
     }
-    
+
     /// Update algorithm settings
     pub fn set_settings(&mut self, settings: AhrsSettings) {
         self.settings = settings;
     }
-    
+
     /// Get current algorithm settings
     pub fn get_settings(&self) -> AhrsSettings {
         self.settings
@@ -227,7 +227,7 @@ impl FusionAhrs {
     pub fn update(
         &mut self,
         gyroscope: Vector3<f32>,
-        accelerometer: Vector3<f32>, 
+        accelerometer: Vector3<f32>,
         magnetometer: Vector3<f32>,
         delta_time: f32,
     ) {
@@ -245,7 +245,7 @@ impl FusionAhrs {
         // Placeholder - will implement algorithm without magnetometer
         self.accelerometer = accelerometer;
     }
-    
+
     /// Update AHRS with external heading source
     pub fn update_external_heading(
         &mut self,
@@ -262,36 +262,36 @@ impl FusionAhrs {
     pub fn get_quaternion(&self) -> UnitQuaternion<f32> {
         self.quaternion
     }
-    
+
     /// Set orientation quaternion directly
     pub fn set_quaternion(&mut self, quaternion: UnitQuaternion<f32>) {
         self.quaternion = quaternion;
     }
-    
+
     /// Get gravity vector in sensor frame
     pub fn get_gravity(&self) -> Vector3<f32> {
         // Placeholder - will implement gravity calculation
         Vector3::new(0.0, 0.0, 1.0)
     }
-    
+
     /// Get linear acceleration (acceleration minus gravity)
     pub fn get_linear_acceleration(&self) -> Vector3<f32> {
         // Placeholder - will implement linear acceleration calculation
         self.accelerometer - self.get_gravity()
     }
-    
+
     /// Get earth-frame acceleration
     pub fn get_earth_acceleration(&self) -> Vector3<f32> {
         // Placeholder - will implement earth acceleration calculation
         self.quaternion * self.get_linear_acceleration()
     }
-    
+
     /// Get internal algorithm states
     pub fn get_internal_states(&self) -> AhrsInternalStates {
         // Placeholder - will implement based on internal state
         AhrsInternalStates::default()
     }
-    
+
     /// Get algorithm flags
     pub fn get_flags(&self) -> AhrsFlags {
         AhrsFlags {
@@ -301,7 +301,7 @@ impl FusionAhrs {
             magnetic_recovery: self.magnetic_recovery_trigger > 0,
         }
     }
-    
+
     /// Set heading angle directly
     pub fn set_heading(&mut self, heading: f32) {
         // Placeholder - will implement heading adjustment
