@@ -1,6 +1,25 @@
 #![no_std]
 
-use nalgebra::{UnitQuaternion, Vector3};
+use nalgebra::{Matrix3, UnitQuaternion, Vector3};
+
+/// Applies inertial sensor calibration
+pub fn calibrate_inertial(
+    uncalibrated: Vector3<f32>,
+    misalignment: Matrix3<f32>,
+    sensitivity: Vector3<f32>,
+    offset: Vector3<f32>,
+) -> Vector3<f32> {
+    misalignment * (uncalibrated.component_mul(&sensitivity) - offset)
+}
+
+/// Applies magnetometer calibration
+pub fn calibrate_magnetic(
+    uncalibrated: Vector3<f32>,
+    soft_iron_matrix: Matrix3<f32>,
+    hard_iron_offset: Vector3<f32>,
+) -> Vector3<f32> {
+    soft_iron_matrix * (uncalibrated - hard_iron_offset)
+}
 
 /// Earth axes convention
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,6 +111,24 @@ pub struct AhrsFlags {
     pub magnetic_recovery: bool,
 }
 
+/// Gyroscope offset correction settings
+#[derive(Debug, Clone, Copy)]
+pub struct OffsetSettings {
+    /// Filter coefficient for offset estimation (typically 0.01)
+    pub filter_coefficient: f32,
+    /// Timeout period in seconds (typically 5.0)
+    pub timeout: f32,
+}
+
+impl Default for OffsetSettings {
+    fn default() -> Self {
+        Self {
+            filter_coefficient: 0.01,
+            timeout: 5.0,
+        }
+    }
+}
+
 /// Gyroscope offset correction structure
 #[derive(Debug, Clone, Copy)]
 pub struct Offset {
@@ -106,13 +143,12 @@ pub struct Offset {
 }
 
 impl Offset {
-    /// Initialize offset correction with the given sample rate
-    pub fn new(sample_rate: u32) -> Self {
-        let timeout = sample_rate * 5; // 5 second timeout
+    /// Initialize offset correction with the given settings
+    pub fn new(settings: OffsetSettings) -> Self {
         Self {
-            filter_coefficient: 0.01, // 1% filter coefficient
-            timeout,
-            timer: timeout,
+            filter_coefficient: settings.filter_coefficient,
+            timeout: 0, // Will be set based on sample rate when used
+            timer: 0,
             gyroscope_offset: Vector3::zeros(),
         }
     }
@@ -124,13 +160,13 @@ impl Offset {
     }
 
     /// Get current offset estimate
-    pub fn get_offset(&self) -> Vector3<f32> {
+    pub fn offset(&self) -> Vector3<f32> {
         self.gyroscope_offset
     }
 }
 
 /// Main AHRS algorithm structure
-pub struct FusionAhrs {
+pub struct Ahrs {
     /// Algorithm settings
     settings: AhrsSettings,
     /// Current orientation quaternion
@@ -163,7 +199,7 @@ pub struct FusionAhrs {
     magnetic_recovery_timeout: i32,
 }
 
-impl FusionAhrs {
+impl Ahrs {
     /// Create a new AHRS instance with default settings
     pub fn new() -> Self {
         Self::with_settings(AhrsSettings::default())
@@ -171,7 +207,7 @@ impl FusionAhrs {
 
     /// Create a new AHRS instance with specified settings
     pub fn with_settings(settings: AhrsSettings) -> Self {
-        FusionAhrs {
+        Ahrs {
             settings,
             quaternion: UnitQuaternion::identity(),
             accelerometer: Vector3::zeros(),
@@ -259,7 +295,7 @@ impl FusionAhrs {
     }
 
     /// Get current orientation quaternion
-    pub fn get_quaternion(&self) -> UnitQuaternion<f32> {
+    pub fn quaternion(&self) -> UnitQuaternion<f32> {
         self.quaternion
     }
 
@@ -269,31 +305,31 @@ impl FusionAhrs {
     }
 
     /// Get gravity vector in sensor frame
-    pub fn get_gravity(&self) -> Vector3<f32> {
+    pub fn gravity(&self) -> Vector3<f32> {
         // Placeholder - will implement gravity calculation
         Vector3::new(0.0, 0.0, 1.0)
     }
 
     /// Get linear acceleration (acceleration minus gravity)
-    pub fn get_linear_acceleration(&self) -> Vector3<f32> {
+    pub fn linear_acceleration(&self) -> Vector3<f32> {
         // Placeholder - will implement linear acceleration calculation
-        self.accelerometer - self.get_gravity()
+        self.accelerometer - self.gravity()
     }
 
     /// Get earth-frame acceleration
-    pub fn get_earth_acceleration(&self) -> Vector3<f32> {
+    pub fn earth_acceleration(&self) -> Vector3<f32> {
         // Placeholder - will implement earth acceleration calculation
-        self.quaternion * self.get_linear_acceleration()
+        self.quaternion * self.linear_acceleration()
     }
 
     /// Get internal algorithm states
-    pub fn get_internal_states(&self) -> AhrsInternalStates {
+    pub fn internal_states(&self) -> AhrsInternalStates {
         // Placeholder - will implement based on internal state
         AhrsInternalStates::default()
     }
 
     /// Get algorithm flags
-    pub fn get_flags(&self) -> AhrsFlags {
+    pub fn flags(&self) -> AhrsFlags {
         AhrsFlags {
             initialising: self.initialising,
             angular_rate_recovery: self.angular_rate_recovery,
@@ -308,11 +344,12 @@ impl FusionAhrs {
     }
 }
 
-impl Default for FusionAhrs {
+impl Default for Ahrs {
     fn default() -> Self {
         Self::new()
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -320,8 +357,8 @@ mod tests {
 
     #[test]
     fn test_new_ahrs() {
-        let ahrs = FusionAhrs::new();
+        let ahrs = Ahrs::new();
         // Add assertions to verify the initial state of the AHRS
-        assert_eq!(ahrs.get_quaternion(), UnitQuaternion::identity());
+        assert_eq!(ahrs.quaternion(), UnitQuaternion::identity());
     }
 }
