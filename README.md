@@ -12,22 +12,12 @@ Fusion AHRS is a sensor fusion library for Inertial Measurement Units (IMUs), op
 - **Sensor Calibration**: Built-in calibration functions for all sensor types
 - **nalgebra Integration**: Leverages the robust nalgebra ecosystem for matrix operations
 
-## Usage
+## Installation
 
-Add this to your `Cargo.toml`:
+Run the following command
 
-```toml
-[dependencies]
-fusion-ahrs = "1.0"
-nalgebra = "0.32"
-```
-
-For embedded (no-std) environments:
-
-```toml
-[dependencies]
-fusion-ahrs = { version = "1.0", default-features = false }
-nalgebra = { version = "0.32", default-features = false }
+```bash
+cargo add fusion-ahrs
 ```
 
 ## AHRS Algorithm
