@@ -48,7 +48,7 @@ const SAMPLE_RATE: f32 = 100.0; // 100 Hz
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("Advanced AHRS Example - Full 9-DOF fusion with diagnostics");
-    
+
     // Load sensor data from CSV
     let mut reader = csv::Reader::from_path("testdata/sensor_data.csv")?;
     let mut sensor_data = Vec::new();
@@ -62,34 +62,37 @@ fn main() -> Result<(), Box<dyn Error>> {
     // This will automatically detect when the device is stationary
     // and estimate gyroscope bias for temperature compensation
     let mut offset = Offset::new(OffsetSettings::default(), SAMPLE_RATE);
-    
+
     // Initialize AHRS algorithm
     let mut ahrs = Ahrs::new();
 
     // Configure AHRS settings for optimal performance
     let settings = AhrsSettings {
-        convention: Convention::Nwu,         // North-West-Up coordinate system
-        gain: 0.5,                          // Moderate fusion gain
-        gyroscope_range: 2000.0,            // 2000 deg/s overflow detection
-        acceleration_rejection: 10.0,       // 10° acceleration rejection threshold
-        magnetic_rejection: 10.0,           // 10° magnetic rejection threshold  
+        convention: Convention::Nwu,  // North-West-Up coordinate system
+        gain: 0.5,                    // Moderate fusion gain
+        gyroscope_range: 2000.0,      // 2000 deg/s overflow detection
+        acceleration_rejection: 10.0, // 10° acceleration rejection threshold
+        magnetic_rejection: 10.0,     // 10° magnetic rejection threshold
         recovery_trigger_period: (5.0 * SAMPLE_RATE) as u32, // 5 seconds recovery
     };
     ahrs.set_settings(settings);
-    
-    println!("AHRS configured with {} convention, {:.1} gain", 
+
+    println!(
+        "AHRS configured with {} convention, {:.1} gain",
         match settings.convention {
             Convention::Nwu => "NWU",
-            Convention::Enu => "ENU", 
+            Convention::Enu => "ENU",
             Convention::Ned => "NED",
-        }, settings.gain);
+        },
+        settings.gain
+    );
 
     // Prepare data storage for results and diagnostics
     let mut euler_angles = Vec::new();
     let mut internal_states = Vec::new();
     let mut flags = Vec::new();
     let mut delta_times = Vec::new();
-    
+
     println!("Processing {} sensor samples...", sensor_data.len());
 
     // Calculate delta times
@@ -119,14 +122,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         let quaternion = ahrs.quaternion();
         let (roll, pitch, yaw) = quaternion.euler_angles();
         euler_angles.push((roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees()));
-        
+
         // Print progress and diagnostics
         if i % 1000 == 0 {
             let flags = ahrs.flags();
             let states = ahrs.internal_states();
-            println!("Sample {}: orientation=({:.1}°,{:.1}°,{:.1}°) initializing={} accel_err={:.1}° mag_err={:.1}°",
-                i, roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees(),
-                flags.initialising, states.acceleration_error, states.magnetic_error);
+            println!(
+                "Sample {}: orientation=({:.1}°,{:.1}°,{:.1}°) initializing={} accel_err={:.1}° mag_err={:.1}°",
+                i,
+                roll.to_degrees(),
+                pitch.to_degrees(),
+                yaw.to_degrees(),
+                flags.initialising,
+                states.acceleration_error,
+                states.magnetic_error
+            );
         }
 
         // Get internal states

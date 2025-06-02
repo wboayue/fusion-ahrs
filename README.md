@@ -55,22 +55,22 @@ ahrs.update(gyroscope, accelerometer, magnetometer, sample_period);
 
 // Get orientation quaternion
 let quaternion = ahrs.quaternion();
-let euler_angles = quaternion.euler_angles();
+let (roll, pitch, yaw) = quaternion.euler_angles();
 
 println!("Roll: {:.1}°, Pitch: {:.1}°, Yaw: {:.1}°", 
-         euler_angles.0.to_degrees(), // roll
-         euler_angles.1.to_degrees(), // pitch
-         euler_angles.2.to_degrees()  // yaw
+         roll.to_degrees(), 
+         pitch.to_degrees(), 
+         yaw.to_degrees()
 );
 ```
 
-### Initialisation
+### Initialization
 
-Initialisation occurs when the algorithm starts for the first time and during angular rate recovery. During initialisation, the acceleration and magnetic rejection features are disabled and the gain is ramped down from 10 to the final value over a 3 second period. This allows the measurement of orientation to rapidly converge from an arbitrary initial value to the value indicated by the sensors.
+Initialization occurs when the algorithm starts for the first time and during angular rate recovery. During initialization, the acceleration and magnetic rejection features are disabled and the gain is ramped down from 10 to the final value over a 3 second period. This allows the measurement of orientation to rapidly converge from an arbitrary initial value to the value indicated by the sensors.
 
 ### Angular Rate Recovery
 
-Angular rates that exceed the gyroscope measurement range cannot be tracked and will trigger an angular rate recovery. Angular rate recovery is activated when the angular rate exceeds 98% of the gyroscope measurement range and is equivalent to a reinitialisation of the algorithm.
+Angular rates that exceed the gyroscope measurement range cannot be tracked and will trigger an angular rate recovery. Angular rate recovery is activated when the angular rate exceeds 98% of the gyroscope measurement range and is equivalent to a reinitialization of the algorithm.
 
 ### Acceleration Rejection
 
@@ -270,7 +270,6 @@ let axis_angle = orientation.axis_angle();
 ```
 
 This integration allows you to easily combine Fusion AHRS with other nalgebra-based libraries in the Rust ecosystem for robotics, computer vision, and scientific computing applications.
-
 
 ## Examples
 

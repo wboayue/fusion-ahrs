@@ -69,7 +69,7 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
     /// assert!(ahrs.flags().initialising);
     /// ```
@@ -88,7 +88,7 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
-    /// 
+    ///
     /// let settings = AhrsSettings {
     ///     convention: Convention::Enu,
     ///     gain: 0.75,
@@ -97,7 +97,7 @@ impl Ahrs {
     ///     magnetic_rejection: 25.0,
     ///     recovery_trigger_period: 1024,
     /// };
-    /// 
+    ///
     /// let mut ahrs = Ahrs::with_settings(settings);
     /// assert_eq!(ahrs.get_settings().gain, 0.75);
     /// ```
@@ -142,7 +142,7 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
     /// // ... use the AHRS ...
     /// ahrs.initialise(); // Reset to initial state
@@ -173,7 +173,7 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
     /// ahrs.reset(); // Same as ahrs.initialise()
     /// ```
@@ -192,7 +192,7 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::{Ahrs, AhrsSettings};
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
     /// let mut settings = ahrs.get_settings();
     /// settings.gain = 0.25; // Lower gain for more stable operation
@@ -214,7 +214,7 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::{Ahrs, Convention};
-    /// 
+    ///
     /// let ahrs = Ahrs::new();
     /// let settings = ahrs.get_settings();
     /// assert_eq!(settings.convention, Convention::Nwu);
@@ -243,16 +243,16 @@ impl Ahrs {
     /// ```
     /// use nalgebra::Vector3;
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
-    /// 
+    ///
     /// // Typical sensor readings
     /// let gyro = Vector3::new(0.1, -0.2, 0.05);     // Small rotation rates
     /// let accel = Vector3::new(0.0, 0.0, 1.0);      // Gravity pointing up (NWU)
     /// let mag = Vector3::new(25.0, 2.0, -15.0);     // Earth's magnetic field
-    /// 
+    ///
     /// ahrs.update(gyro, accel, mag, 0.01);  // 10ms time step (100Hz)
-    /// 
+    ///
     /// let orientation = ahrs.quaternion();
     /// let gravity = ahrs.gravity();
     /// ```
@@ -402,14 +402,14 @@ impl Ahrs {
     /// ```
     /// use nalgebra::Vector3;
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
-    /// 
+    ///
     /// let gyro = Vector3::new(0.1, -0.2, 0.05);
     /// let accel = Vector3::new(0.0, 0.0, 1.0);
-    /// 
+    ///
     /// ahrs.update_no_magnetometer(gyro, accel, 0.01);
-    /// 
+    ///
     /// // Roll and pitch will be accurate, heading may drift
     /// let euler = ahrs.quaternion().euler_angles();
     /// ```
@@ -448,13 +448,13 @@ impl Ahrs {
     /// ```
     /// use nalgebra::Vector3;
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
-    /// 
+    ///
     /// let gyro = Vector3::new(0.1, -0.2, 0.05);
     /// let accel = Vector3::new(0.0, 0.0, 1.0);
     /// let heading_from_gps = 45.0; // 45° (northeast)
-    /// 
+    ///
     /// ahrs.update_external_heading(gyro, accel, heading_from_gps, 0.01);
     /// ```
     pub fn update_external_heading(
@@ -492,13 +492,13 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let ahrs = Ahrs::new();
     /// let quaternion = ahrs.quaternion();
-    /// 
+    ///
     /// // Convert to Euler angles if needed
     /// let (roll, pitch, yaw) = quaternion.euler_angles();
-    /// 
+    ///
     /// // Or use for transformations
     /// let sensor_vector = nalgebra::Vector3::new(1.0, 0.0, 0.0);
     /// let earth_vector = quaternion * sensor_vector;
@@ -519,13 +519,13 @@ impl Ahrs {
     /// ```
     /// use nalgebra::UnitQuaternion;
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
-    /// 
+    ///
     /// // Set to 45° rotation around Z-axis
     /// let rotation = UnitQuaternion::from_euler_angles(0.0, 0.0, 45.0_f32.to_radians());
     /// ahrs.set_quaternion(rotation);
-    /// 
+    ///
     /// assert_eq!(ahrs.quaternion(), rotation);
     /// ```
     pub fn set_quaternion(&mut self, quaternion: UnitQuaternion<f32>) {
@@ -544,10 +544,10 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let ahrs = Ahrs::new();
     /// let gravity = ahrs.gravity();
-    /// 
+    ///
     /// // For a level device in NWU convention, gravity points down (-Z)
     /// // When tilted, gravity will point in different directions
     /// println!("Gravity: {:?}", gravity);
@@ -569,13 +569,13 @@ impl Ahrs {
     /// ```
     /// use nalgebra::Vector3;
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
-    /// 
+    ///
     /// // Simulate accelerometer reading with motion
     /// let accel_with_motion = Vector3::new(0.5, 0.0, 1.0); // 0.5g lateral + gravity
     /// ahrs.update(Vector3::zeros(), accel_with_motion, Vector3::zeros(), 0.01);
-    /// 
+    ///
     /// let linear_accel = ahrs.linear_acceleration();
     /// // Should show the 0.5g lateral acceleration
     /// ```
@@ -596,9 +596,9 @@ impl Ahrs {
     /// ```
     /// use nalgebra::Vector3;
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
-    /// 
+    ///
     /// // Update with some motion
     /// ahrs.update(
     ///     Vector3::zeros(),
@@ -606,7 +606,7 @@ impl Ahrs {
     ///     Vector3::zeros(),
     ///     0.01
     /// );
-    /// 
+    ///
     /// let earth_accel = ahrs.earth_acceleration();
     /// // Acceleration now expressed in Earth coordinates
     /// ```
@@ -626,10 +626,10 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let ahrs = Ahrs::new();
     /// let states = ahrs.internal_states();
-    /// 
+    ///
     /// println!("Acceleration error: {:.2}°", states.acceleration_error);
     /// println!("Accelerometer ignored: {}", states.accelerometer_ignored);
     /// println!("Magnetic error: {:.2}°", states.magnetic_error);
@@ -657,10 +657,10 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let ahrs = Ahrs::new();
     /// let flags = ahrs.flags();
-    /// 
+    ///
     /// if flags.initialising {
     ///     println!("Algorithm is still initializing");
     /// }
@@ -688,12 +688,12 @@ impl Ahrs {
     /// # Example
     /// ```
     /// use fusion_ahrs::Ahrs;
-    /// 
+    ///
     /// let mut ahrs = Ahrs::new();
-    /// 
+    ///
     /// // Set heading to face East (90°)
     /// ahrs.set_heading(90.0);
-    /// 
+    ///
     /// let (_, _, yaw) = ahrs.quaternion().euler_angles();
     /// assert!((yaw.to_degrees() - 90.0).abs() < 1.0);
     /// ```

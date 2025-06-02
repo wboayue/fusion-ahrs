@@ -49,7 +49,7 @@ const SAMPLE_RATE: f32 = 100.0; // 100 Hz
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("Simple AHRS Example - Processing sensor data without magnetometer");
-    
+
     // Load sensor data from CSV
     let mut reader = csv::Reader::from_path("testdata/sensor_data.csv")?;
     let mut sensor_data = Vec::new();
@@ -63,8 +63,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Default: NWU convention, 0.5 gain, 2000 deg/s gyro range
     let mut ahrs = Ahrs::new();
     let mut euler_angles = Vec::new();
-    
-    println!("Processing {} sensor samples at {} Hz...", sensor_data.len(), SAMPLE_RATE);
+
+    println!(
+        "Processing {} sensor samples at {} Hz...",
+        sensor_data.len(),
+        SAMPLE_RATE
+    );
 
     for (i, data) in sensor_data.iter().enumerate() {
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
@@ -79,11 +83,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         let (roll, pitch, yaw) = quaternion.euler_angles();
 
         euler_angles.push((roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees()));
-        
+
         // Print progress every 1000 samples
         if i % 1000 == 0 {
-            println!("Processed {} samples, current orientation: roll={:.1}°, pitch={:.1}°, yaw={:.1}°", 
-                i, roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees());
+            println!(
+                "Processed {} samples, current orientation: roll={:.1}°, pitch={:.1}°, yaw={:.1}°",
+                i,
+                roll.to_degrees(),
+                pitch.to_degrees(),
+                yaw.to_degrees()
+            );
         }
     }
 

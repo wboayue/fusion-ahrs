@@ -1,5 +1,11 @@
 #![no_std]
 
+//! [![github]](https://github.com/wboayue/fusion-ahrs)&ensp;[![crates-io]](https://crates.io/crates/fusion-ahrs)&ensp;[![license]](https://opensource.org/licenses/MIT)
+//!
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//! [crates-io]: https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&labelColor=555555&logo=rust
+//! [license]: https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge&labelColor=555555
+//!
 //! Fusion AHRS - A sensor fusion library for attitude and heading reference systems
 //!
 //! This is a Rust port of the C library by xioTechnologies: <https://github.com/xioTechnologies/Fusion>
@@ -36,6 +42,9 @@
 //!
 //! // Get orientation
 //! let quaternion = ahrs.quaternion();
+//!
+//! // Convert to Euler angles (roll, pitch, yaw)
+//! let (roll, pitch, yaw) = quaternion.euler_angles();
 //! ```
 //!
 //! For more documentation and examples, see: <https://github.com/wboayue/fusion-ahrs>
