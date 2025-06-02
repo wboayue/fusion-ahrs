@@ -2,6 +2,8 @@
 
 //! Fusion AHRS - A sensor fusion library for attitude and heading reference systems
 //!
+//! This is a Rust port of the C library by xioTechnologies: <https://github.com/xioTechnologies/Fusion>
+//!
 //! This library provides a complete implementation of an AHRS algorithm that fuses
 //! gyroscope, accelerometer, and magnetometer data to estimate device orientation.
 //! It features automatic sensor rejection during motion/interference and recovery
@@ -35,6 +37,8 @@
 //! // Get orientation
 //! let quaternion = ahrs.quaternion();
 //! ```
+//!
+//! For more documentation and examples, see: <https://github.com/wboayue/fusion-ahrs>
 
 mod ahrs;
 pub mod calibration;
