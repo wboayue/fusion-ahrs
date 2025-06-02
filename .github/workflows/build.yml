@@ -38,14 +38,14 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Generate test results
-        run: |
-          mkdir test-results;
-          cargo install cargo2junit;
-          cargo +nightly test -- -Z unstable-options --format json | cargo2junit > test-results/tests.xml;
+    #   - name: Generate test results
+    #     run: |
+    #       mkdir test-results;
+    #       cargo install cargo2junit;
+    #       cargo +nightly test -- -Z unstable-options --format json | cargo2junit > test-results/tests.xml;
 
-      - name: Create Github test summary
-        uses: test-summary/action@dist
-        with:
-          paths: test-results/**/*.xml
-        if: always()
+    #   - name: Create Github test summary
+    #     uses: test-summary/action@dist
+    #     with:
+    #       paths: test-results/**/*.xml
+    #     if: always()

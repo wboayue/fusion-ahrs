@@ -1,3 +1,9 @@
+[![Build](https://github.com/wboayue/fusion-ahrs/workflows/build/badge.svg)](https://github.com/wboayue/fusion-ahrs/actions/workflows/build.yml)
+[![License:MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![crates.io](https://img.shields.io/crates/v/fusion-ahrs.svg)](https://crates.io/crates/fusion-ahrs)
+[![Documentation](https://img.shields.io/badge/Documentation-green.svg)](https://docs.rs/fusion-ahrs/latest/fusion-ahrs/)
+[![Coverage Status](https://coveralls.io/repos/github/wboayue/fusion-ahrs/badge.png?branch=main)](https://coveralls.io/github/wboayue/fusion-ahrs?branch=main)
+
 # Fusion AHRS
 
 Fusion AHRS is a sensor fusion library for Inertial Measurement Units (IMUs), optimised for embedded systems. This is a Rust port of the original [C library](https://github.com/xioTechnologies/Fusion) by xioTechnologies, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics. The library is available on [crates.io](https://crates.io/crates/fusion-ahrs) and includes comprehensive examples demonstrating usage with sample sensor data.
