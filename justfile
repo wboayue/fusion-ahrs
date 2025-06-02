@@ -12,3 +12,8 @@ tag VERSION:
 # Lists all available versions
 versions:
     @git tag
+
+# Updates submodules to the latest commit
+update-submodules:
+    echo "Updating git submodules..."
+    git submodule update --init --recursive
