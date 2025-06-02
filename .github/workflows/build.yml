@@ -1,0 +1,51 @@
+name: build
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual build'
+        required: false
+        default: 'Manual build'
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+
+      # Cache cargo registry, index, and build directories
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo
+          key: cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Generate test results
+        run: |
+          mkdir test-results;
+          cargo install cargo2junit;
+          cargo +nightly test -- -Z unstable-options --format json | cargo2junit > test-results/tests.xml;
+
+      - name: Create Github test summary
+        uses: test-summary/action@dist
+        with:
+          paths: test-results/**/*.xml
+        if: always()

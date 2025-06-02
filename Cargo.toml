@@ -2,6 +2,20 @@
 name = "fusion-ahrs"
 version = "0.1.0"
 edition = "2024"
+authors = ["Wil Boayue <wil@wsbsolutions.com>"]
+description = "A Rust port of the C library by xioTechnologies, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics."
+readme = "README.md"
+homepage = "https://github.com/wboayue/fusion-ahrs/"
+repository = "https://github.com/wboayue/fusion-ahrs/"
+documentation = "https://docs.rs/fusion-ahrs/latest/fusion-ahrs/"
+license = "MIT"
+keywords = ["ahrs", "imu", "sensor-fusion", "quaternion", "embedded"]
+categories = ["embedded", "algorithms", "science"]
+exclude = [
+    "justfile",
+    "CLAUDE.md",
+    "fusion-c",
+]
 
 [dependencies]
 nalgebra = "0.33.2"

@@ -1,6 +1,5 @@
-# Sensor Fusion Library Development Prompt
-
 ## Objective
+
 Port a C sensor fusion library (Fusion AHRS) to Rust, maintaining performance while following Rust best practices.
 
 ## Core Requirements
