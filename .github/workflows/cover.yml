@@ -28,7 +28,13 @@ jobs:
             ~/.cargo
           key: cargo-${{ hashFiles('**/Cargo.toml') }}
 
+      - name: setup
+        run: |
+            sudo apt update
+            sudo apt install libfontconfig1-dev pkg-config
+
       - name: install tarpaulin
         run: cargo install cargo-tarpaulin
+        
       - name: coverage
         run: cargo tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_REPO_TOKEN }}
