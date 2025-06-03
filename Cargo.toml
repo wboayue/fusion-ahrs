@@ -24,3 +24,10 @@ nalgebra = "0.33.2"
 csv = "1.3"
 plotters = "0.3"
 serde = { version = "1.0", features = ["derive"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
+rand_pcg = "0.3"
+
+[[bench]]
+name = "ahrs_benchmarks"
+harness = false
