@@ -53,28 +53,15 @@ impl PreGeneratedData {
     }
 }
 
-/// Generate realistic sensor data for benchmarking
-fn generate_sensor_data() -> (Vector3<f32>, Vector3<f32>, Vector3<f32>) {
-    // Realistic gyroscope data (small rotation rates in deg/s)
-    let gyroscope = Vector3::new(0.1, -0.2, 0.05);
-
-    // Realistic accelerometer data (gravity + some noise in g)
-    let accelerometer = Vector3::new(0.01, -0.02, 1.0);
-
-    // Realistic magnetometer data (Earth's magnetic field in µT)
-    let magnetometer = Vector3::new(25.0, 2.0, -15.0);
-
-    (gyroscope, accelerometer, magnetometer)
-}
-
 /// Benchmark the main AHRS update method with all sensors
 fn bench_update(c: &mut Criterion) {
     let mut ahrs = Ahrs::new();
-    let (gyroscope, accelerometer, magnetometer) = generate_sensor_data();
+    let mut data = PreGeneratedData::new(1000, 42);
     let delta_time = 0.01f32; // 10ms (100Hz)
 
     c.bench_function("ahrs_update", |b| {
         b.iter(|| {
+            let (gyroscope, accelerometer, magnetometer) = data.next();
             ahrs.update(
                 black_box(gyroscope),
                 black_box(accelerometer),
@@ -88,11 +75,12 @@ fn bench_update(c: &mut Criterion) {
 /// Benchmark the AHRS update method without magnetometer
 fn bench_update_no_magnetometer(c: &mut Criterion) {
     let mut ahrs = Ahrs::new();
-    let (gyroscope, accelerometer, _) = generate_sensor_data();
+    let mut data = PreGeneratedData::new(1000, 42);
     let delta_time = 0.01f32; // 10ms (100Hz)
 
     c.bench_function("ahrs_update_no_magnetometer", |b| {
         b.iter(|| {
+            let (gyroscope, accelerometer, _) = data.next();
             ahrs.update_no_magnetometer(
                 black_box(gyroscope),
                 black_box(accelerometer),
@@ -104,13 +92,14 @@ fn bench_update_no_magnetometer(c: &mut Criterion) {
 
 /// Benchmark AHRS update during initialization phase (higher gain)
 fn bench_update_initialization(c: &mut Criterion) {
-    let (gyroscope, accelerometer, magnetometer) = generate_sensor_data();
+    let mut data = PreGeneratedData::new(1000, 42);
     let delta_time = 0.01f32; // 10ms (100Hz)
 
     c.bench_function("ahrs_update_initialization", |b| {
         b.iter(|| {
             // Create fresh AHRS for each iteration to stay in initialization mode
             let mut ahrs = Ahrs::new();
+            let (gyroscope, accelerometer, magnetometer) = data.next();
             ahrs.update(
                 black_box(gyroscope),
                 black_box(accelerometer),
@@ -124,16 +113,18 @@ fn bench_update_initialization(c: &mut Criterion) {
 /// Benchmark AHRS update during steady state (after initialization)
 fn bench_update_steady_state(c: &mut Criterion) {
     let mut ahrs = Ahrs::new();
-    let (gyroscope, accelerometer, magnetometer) = generate_sensor_data();
+    let mut data = PreGeneratedData::new(1000, 42);
     let delta_time = 0.01f32; // 10ms (100Hz)
 
     // Complete initialization by running for several seconds
     for _ in 0..400 {
+        let (gyroscope, accelerometer, magnetometer) = data.next();
         ahrs.update(gyroscope, accelerometer, magnetometer, delta_time);
     }
 
     c.bench_function("ahrs_update_steady_state", |b| {
         b.iter(|| {
+            let (gyroscope, accelerometer, magnetometer) = data.next();
             ahrs.update(
                 black_box(gyroscope),
                 black_box(accelerometer),
@@ -147,12 +138,13 @@ fn bench_update_steady_state(c: &mut Criterion) {
 /// Benchmark batch processing of sensor updates
 fn bench_batch_updates(c: &mut Criterion) {
     let mut ahrs = Ahrs::new();
-    let (gyroscope, accelerometer, magnetometer) = generate_sensor_data();
+    let mut data = PreGeneratedData::new(1000, 42);
     let delta_time = 0.01f32; // 10ms (100Hz)
 
     c.bench_function("ahrs_batch_100_updates", |b| {
         b.iter(|| {
             for _ in 0..100 {
+                let (gyroscope, accelerometer, magnetometer) = data.next();
                 ahrs.update(
                     black_box(gyroscope),
                     black_box(accelerometer),
@@ -188,9 +180,10 @@ fn bench_gravity_calculation(c: &mut Criterion) {
 /// Benchmark linear acceleration calculation
 fn bench_linear_acceleration(c: &mut Criterion) {
     let mut ahrs = Ahrs::new();
-    let (gyroscope, accelerometer, magnetometer) = generate_sensor_data();
+    let mut data = PreGeneratedData::new(1000, 42);
 
     // Update once to set accelerometer reading
+    let (gyroscope, accelerometer, magnetometer) = data.next();
     ahrs.update(gyroscope, accelerometer, magnetometer, 0.01);
 
     c.bench_function("ahrs_linear_acceleration", |b| {
