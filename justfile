@@ -1,3 +1,7 @@
+# Run benchmarks using criterion
+bench:
+    cargo bench --bench ahrs_benchmarks
+
 # Generate and save coverage report using tarpaulin
 cover:
     cargo tarpaulin -o html
