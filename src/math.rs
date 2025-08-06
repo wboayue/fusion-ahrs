@@ -1,8 +1,8 @@
 //! Mathematical utilities and nalgebra extensions for the Fusion AHRS library
 
-use nalgebra::{UnitQuaternion, Vector3};
+use nalgebra::{ComplexField, UnitQuaternion, Vector3};
 
-/// Mathematical constants for angle conversion
+// Mathematical constants for angle conversion
 
 /// Conversion factor from degrees to radians
 ///
