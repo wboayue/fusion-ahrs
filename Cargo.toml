@@ -18,7 +18,7 @@ exclude = [
 ]
 
 [dependencies]
-nalgebra = "0.33.2"
+nalgebra = { version = "0.33", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
 csv = "1.3"

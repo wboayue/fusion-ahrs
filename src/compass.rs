@@ -2,7 +2,7 @@
 
 use crate::math::RAD_TO_DEG;
 use crate::types::Convention;
-use nalgebra::Vector3;
+use nalgebra::{ComplexField, RealField, Vector3};
 
 /// Calculate tilt-compensated magnetic heading
 ///
