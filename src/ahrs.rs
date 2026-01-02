@@ -472,20 +472,31 @@ impl Ahrs {
         heading: f32,
         delta_time: f32,
     ) {
-        // Calculate synthetic magnetometer from heading
+        // Match C implementation exactly:
+        // Calculate roll from quaternion
+        let q = self.quaternion.as_ref();
+        let qw = q.w;
+        let qx = q.i;
+        let qy = q.j;
+        let qz = q.k;
+
+        let roll = (qw * qx + qy * qz).atan2(0.5 - qy * qy - qx * qx);
+
+        // Calculate synthetic magnetometer from heading and roll
         let heading_rad = heading * DEG_TO_RAD;
-        let cos_heading = heading_rad.cos();
         let sin_heading = heading_rad.sin();
+        let cos_heading = heading_rad.cos();
+        let sin_roll = roll.sin();
+        let cos_roll = roll.cos();
 
-        // Use current roll and pitch to calculate expected magnetometer
-        let gravity = self.gravity();
-        let east = Vector3::new(-gravity.y, gravity.x, 0.0).safe_normalize();
-        let north = east.cross(&gravity).safe_normalize();
-
-        let synthetic_magnetometer = north * cos_heading + east * sin_heading;
+        let magnetometer = Vector3::new(
+            cos_heading,
+            -cos_roll * sin_heading,
+            sin_heading * sin_roll,
+        );
 
         // Update with synthetic magnetometer
-        self.update(gyroscope, accelerometer, synthetic_magnetometer, delta_time);
+        self.update(gyroscope, accelerometer, magnetometer, delta_time);
     }
 
     /// Get current orientation quaternion
@@ -653,13 +664,26 @@ impl Ahrs {
         let accel_sin_value = (2.0 * accel_feedback_mag).clamp(-1.0, 1.0);
         let mag_sin_value = (2.0 * mag_feedback_mag).clamp(-1.0, 1.0);
 
+        // C returns normalized trigger values (0.0 to 1.0) as ratio of recovery_trigger_period
+        let recovery_period = self.settings.recovery_trigger_period;
+        let accel_trigger_normalized = if recovery_period == 0 {
+            0.0
+        } else {
+            self.acceleration_recovery_trigger as f32 / recovery_period as f32
+        };
+        let mag_trigger_normalized = if recovery_period == 0 {
+            0.0
+        } else {
+            self.magnetic_recovery_trigger as f32 / recovery_period as f32
+        };
+
         AhrsInternalStates {
             acceleration_error: accel_sin_value.asin().to_degrees(),
             accelerometer_ignored: self.accelerometer_ignored,
-            acceleration_recovery_trigger: self.acceleration_recovery_trigger as f32,
+            acceleration_recovery_trigger: accel_trigger_normalized,
             magnetic_error: mag_sin_value.asin().to_degrees(),
             magnetometer_ignored: self.magnetometer_ignored,
-            magnetic_recovery_trigger: self.magnetic_recovery_trigger as f32,
+            magnetic_recovery_trigger: mag_trigger_normalized,
         }
     }
 
@@ -686,11 +710,14 @@ impl Ahrs {
     /// }
     /// ```
     pub fn flags(&self) -> AhrsFlags {
+        // C implementation: recovery = trigger > timeout
         AhrsFlags {
             initialising: self.initialising,
             angular_rate_recovery: self.angular_rate_recovery,
-            acceleration_recovery: self.acceleration_recovery_trigger > 0,
-            magnetic_recovery: self.magnetic_recovery_trigger > 0,
+            acceleration_recovery: self.acceleration_recovery_trigger
+                > self.acceleration_recovery_timeout as i32,
+            magnetic_recovery: self.magnetic_recovery_trigger
+                > self.magnetic_recovery_timeout as i32,
         }
     }
 
@@ -790,6 +817,7 @@ impl Ahrs {
     }
 
     /// Calculate half magnetic field vector in sensor frame
+    /// Matches C implementation exactly
     fn calculate_half_magnetic(&self) -> Vector3<f32> {
         let q = self.quaternion.as_ref();
         let qw = q.w;
@@ -798,30 +826,24 @@ impl Ahrs {
         let qz = q.k;
 
         match self.settings.convention {
-            Convention::Nwu => {
-                // Second column of rotation matrix * 0.5
-                Vector3::new(
-                    qw * qy + qx * qz,
-                    0.5 - qx * qx - qz * qz,
-                    qy * qz - qw * qx,
-                )
-            }
-            Convention::Enu => {
-                // First column of rotation matrix * -0.5
-                Vector3::new(
-                    -(0.5 - qy * qy - qz * qz),
-                    -(qx * qy - qw * qz),
-                    -(qx * qz + qw * qy),
-                )
-            }
-            Convention::Ned => {
-                // Second column of rotation matrix * -0.5
-                Vector3::new(
-                    -(qw * qy + qx * qz),
-                    -(0.5 - qx * qx - qz * qz),
-                    -(qy * qz - qw * qx),
-                )
-            }
+            // C: second column of transposed rotation matrix scaled by 0.5
+            Convention::Nwu => Vector3::new(
+                qx * qy + qw * qz,
+                qw * qw - 0.5 + qy * qy,
+                qy * qz - qw * qx,
+            ),
+            // C: first column of transposed rotation matrix scaled by -0.5
+            Convention::Enu => Vector3::new(
+                0.5 - qw * qw - qx * qx,
+                qw * qz - qx * qy,
+                -(qx * qz + qw * qy),
+            ),
+            // C: second column of transposed rotation matrix scaled by -0.5
+            Convention::Ned => Vector3::new(
+                -(qx * qy + qw * qz),
+                0.5 - qw * qw - qy * qy,
+                qw * qx - qy * qz,
+            ),
         }
     }
 
