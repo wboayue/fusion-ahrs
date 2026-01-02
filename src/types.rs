@@ -20,13 +20,14 @@
 /// };
 /// let ahrs = Ahrs::with_settings(settings);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Convention {
     /// North-West-Up coordinate system
     ///
     /// - X axis points North
-    /// - Y axis points West  
+    /// - Y axis points West
     /// - Z axis points Up
+    #[default]
     Nwu,
     /// East-North-Up coordinate system
     ///
@@ -40,12 +41,6 @@ pub enum Convention {
     /// - Y axis points East
     /// - Z axis points Down
     Ned,
-}
-
-impl Default for Convention {
-    fn default() -> Self {
-        Self::Nwu
-    }
 }
 
 /// AHRS algorithm settings

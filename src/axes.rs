@@ -23,16 +23,19 @@ use nalgebra::Vector3;
 
 /// Axes alignment describing the sensor axes relative to the body axes.
 ///
-/// Each variant describes how the body axes map to the sensor axes.
+/// Each variant name describes where each body axis comes from in sensor
+/// coordinates. The three letter-pairs specify the source for body X, Y, Z
+/// respectively.
+///
 /// For example, `PyNxPz` means:
-/// - Body X = +Sensor Y
-/// - Body Y = -Sensor X
-/// - Body Z = +Sensor Z
+/// - Body X = +Sensor Y (first pair: Py)
+/// - Body Y = -Sensor X (second pair: Nx)
+/// - Body Z = +Sensor Z (third pair: Pz)
 ///
 /// The naming convention uses:
-/// - `P` = Positive
-/// - `N` = Negative
-/// - `X`, `Y`, `Z` = sensor axis
+/// - `P` = Positive (same direction)
+/// - `N` = Negative (inverted direction)
+/// - `x`, `y`, `z` = which sensor axis to use
 ///
 /// # Example
 /// ```
@@ -258,5 +261,39 @@ mod tests {
         assert_eq!(axes_swap(x, AxesAlignment::PyNxPz), Vector3::new(0.0, -1.0, 0.0));
         assert_eq!(axes_swap(y, AxesAlignment::PyNxPz), Vector3::new(1.0, 0.0, 0.0));
         assert_eq!(axes_swap(z, AxesAlignment::PyNxPz), z);
+    }
+
+    #[test]
+    fn test_inverse_round_trip() {
+        // Verify that applying an alignment and its inverse returns original
+        // These are known inverse pairs from the rotation group
+        let inverse_pairs = [
+            (AxesAlignment::PxPyPz, AxesAlignment::PxPyPz), // identity
+            (AxesAlignment::PyNxPz, AxesAlignment::NyPxPz), // 90° about Z
+            (AxesAlignment::NxNyPz, AxesAlignment::NxNyPz), // 180° about Z (self-inverse)
+            (AxesAlignment::PxNzPy, AxesAlignment::PxPzNy), // 90° about X
+            (AxesAlignment::PzPyNx, AxesAlignment::NzPyPx), // 90° about Y
+        ];
+
+        let test_vectors = [
+            Vector3::new(1.0, 2.0, 3.0),
+            Vector3::new(-5.0, 0.0, 7.0),
+            Vector3::new(0.1, -0.2, 0.3),
+        ];
+
+        for (forward, inverse) in inverse_pairs {
+            for &v in &test_vectors {
+                let transformed = axes_swap(v, forward);
+                let recovered = axes_swap(transformed, inverse);
+                assert!(
+                    (recovered - v).magnitude() < 1e-6,
+                    "Round-trip failed for {:?}: {:?} -> {:?} -> {:?}",
+                    forward,
+                    v,
+                    transformed,
+                    recovered
+                );
+            }
+        }
     }
 }

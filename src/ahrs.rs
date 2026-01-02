@@ -66,6 +66,12 @@ impl Ahrs {
     /// - Magnetic rejection: 90°
     /// - Recovery trigger period: 0 (disabled)
     ///
+    /// **Note:** These defaults provide minimal filtering to match the C library.
+    /// The 90° rejection thresholds effectively disable sensor rejection, and
+    /// recovery mechanisms are off. For applications with motion or magnetic
+    /// interference, configure stricter thresholds (e.g., 10° acceleration,
+    /// 20° magnetic rejection) via [`Ahrs::with_settings`].
+    ///
     /// The algorithm will start in initialization mode with ramped gain.
     ///
     /// # Example
