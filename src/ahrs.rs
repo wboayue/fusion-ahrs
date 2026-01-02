@@ -167,10 +167,10 @@ impl Ahrs {
         self.half_magnetometer_feedback = Vector3::zeros();
         self.accelerometer_ignored = false;
         self.acceleration_recovery_trigger = 0;
-        self.acceleration_recovery_timeout = 0;
+        self.acceleration_recovery_timeout = self.settings.recovery_trigger_period;
         self.magnetometer_ignored = false;
         self.magnetic_recovery_trigger = 0;
-        self.magnetic_recovery_timeout = 0;
+        self.magnetic_recovery_timeout = self.settings.recovery_trigger_period;
     }
 
     /// Reset the algorithm (alias for initialise)
