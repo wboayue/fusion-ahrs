@@ -1,6 +1,6 @@
 [package]
 name = "fusion-ahrs"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Wil Boayue <wil@wsbsolutions.com>"]
 description = "A Rust port of the C library by xioTechnologies, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics."
@@ -21,10 +21,10 @@ exclude = [
 nalgebra = { version = "0.34", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
-csv = "1.3"
+csv = "1.4"
 plotters = "0.3"
 serde = { version = "1.0", features = ["derive"] }
-criterion = { version = "0.7", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 rand = "0.9"
 rand_pcg = "0.9"
 
