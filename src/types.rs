@@ -103,10 +103,10 @@ impl Default for AhrsSettings {
         Self {
             convention: Convention::default(),
             gain: 0.5,
-            gyroscope_range: 0.0,         // Disabled by default (matches C)
-            acceleration_rejection: 90.0, // 90° threshold (matches C)
-            magnetic_rejection: 90.0,     // 90° threshold (matches C)
-            recovery_trigger_period: 0,   // Disabled by default (matches C)
+            gyroscope_range: 0.0,
+            acceleration_rejection: 90.0,
+            magnetic_rejection: 90.0,
+            recovery_trigger_period: 0,
         }
     }
 }

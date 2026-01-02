@@ -24,7 +24,7 @@ use nalgebra::Vector3;
 /// Axes alignment describing the sensor axes relative to the body axes.
 ///
 /// Each variant describes how the body axes map to the sensor axes.
-/// For example, `PYNxPz` means:
+/// For example, `PyNxPz` means:
 /// - Body X = +Sensor Y
 /// - Body Y = -Sensor X
 /// - Body Z = +Sensor Z
