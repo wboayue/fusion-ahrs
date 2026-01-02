@@ -61,10 +61,10 @@ impl Ahrs {
     /// This creates an AHRS algorithm with the default settings:
     /// - Convention: NWU (North-West-Up)
     /// - Gain: 0.5
-    /// - Gyroscope range: 2000 deg/s
-    /// - Acceleration rejection: 10°
-    /// - Magnetic rejection: 20°
-    /// - Recovery trigger period: 2560 samples (5s at 512Hz)
+    /// - Gyroscope range: 0 (disabled)
+    /// - Acceleration rejection: 90°
+    /// - Magnetic rejection: 90°
+    /// - Recovery trigger period: 0 (disabled)
     ///
     /// The algorithm will start in initialization mode with ramped gain.
     ///

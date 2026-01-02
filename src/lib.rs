@@ -50,6 +50,7 @@
 //! For more documentation and examples, see: <https://github.com/wboayue/fusion-ahrs>
 
 mod ahrs;
+pub mod axes;
 pub mod calibration;
 pub mod compass;
 mod math;
@@ -58,6 +59,7 @@ mod types;
 
 // Re-export all public types and functions
 pub use ahrs::Ahrs;
+pub use axes::{axes_swap, AxesAlignment};
 pub use calibration::{calibrate_inertial, calibrate_magnetic};
 pub use compass::calculate_heading;
 pub use math::{DEG_TO_RAD, QuaternionExt, RAD_TO_DEG, Vector3Ext};

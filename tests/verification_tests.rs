@@ -6,21 +6,22 @@ const EPSILON: f32 = 1e-6;
 /// Test that settings are processed correctly to match C implementation
 #[test]
 fn test_settings_processing() {
-    // Test default settings
+    // Test default settings (matches C library defaults)
     let ahrs = Ahrs::new();
     let settings = ahrs.get_settings();
     assert_eq!(settings.gain, 0.5);
-    assert_eq!(settings.gyroscope_range, 2000.0);
-    assert_eq!(settings.acceleration_rejection, 10.0);
-    assert_eq!(settings.magnetic_rejection, 20.0);
+    assert_eq!(settings.gyroscope_range, 0.0);         // Disabled by default (C compat)
+    assert_eq!(settings.acceleration_rejection, 90.0); // C default
+    assert_eq!(settings.magnetic_rejection, 90.0);     // C default
+    assert_eq!(settings.recovery_trigger_period, 0);   // Disabled by default (C compat)
 
-    // Test disabled gyroscope range (should use f32::MAX internally)
-    let settings_disabled = AhrsSettings {
-        gyroscope_range: 0.0,
+    // Test enabled gyroscope range
+    let settings_enabled = AhrsSettings {
+        gyroscope_range: 2000.0,
         ..Default::default()
     };
-    let _ahrs_disabled = Ahrs::with_settings(settings_disabled);
-    // The internal threshold should be f32::MAX when range is 0
+    let _ahrs_enabled = Ahrs::with_settings(settings_enabled);
+    // The internal threshold should be 2000 * 0.98 = 1960
 
     // Test disabled rejection thresholds
     let settings_no_rejection = AhrsSettings {
