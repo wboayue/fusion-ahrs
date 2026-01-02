@@ -1,6 +1,6 @@
 [package]
 name = "fusion-ahrs"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 authors = ["Wil Boayue <wil@wsbsolutions.com>"]
 description = "A Rust port of the C library by xioTechnologies, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics."
