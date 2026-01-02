@@ -1,6 +1,8 @@
 //! Mathematical utilities and nalgebra extensions for the Fusion AHRS library
 
-use nalgebra::{ComplexField, UnitQuaternion, Vector3};
+#[allow(unused_imports)]
+use nalgebra::ComplexField; // Required for no_std float methods
+use nalgebra::{UnitQuaternion, Vector3};
 
 // Mathematical constants for angle conversion
 

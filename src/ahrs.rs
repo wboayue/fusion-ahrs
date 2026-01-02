@@ -2,7 +2,9 @@
 
 use crate::math::{DEG_TO_RAD, Vector3Ext};
 use crate::types::{AhrsFlags, AhrsInternalStates, AhrsSettings, Convention};
-use nalgebra::{ComplexField, Quaternion, UnitQuaternion, Vector3};
+#[allow(unused_imports)]
+use nalgebra::ComplexField; // Required for no_std float methods
+use nalgebra::{Quaternion, UnitQuaternion, Vector3};
 
 /// AHRS algorithm constants
 const INITIAL_GAIN: f32 = 10.0;

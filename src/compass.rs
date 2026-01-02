@@ -2,7 +2,9 @@
 
 use crate::math::RAD_TO_DEG;
 use crate::types::Convention;
-use nalgebra::{ComplexField, RealField, Vector3};
+#[allow(unused_imports)]
+use nalgebra::{ComplexField, RealField}; // Required for no_std float methods
+use nalgebra::Vector3;
 
 /// Calculate tilt-compensated magnetic heading
 ///

@@ -1,9 +1,7 @@
 use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
-use nalgebra::{UnitQuaternion, Vector3};
-use std::f32::consts::PI;
+use nalgebra::Vector3;
 
 const EPSILON: f32 = 1e-6;
-const ANGLE_EPSILON: f32 = 0.01; // degrees
 
 /// Test that settings are processed correctly to match C implementation
 #[test]
@@ -21,7 +19,7 @@ fn test_settings_processing() {
         gyroscope_range: 0.0,
         ..Default::default()
     };
-    let ahrs_disabled = Ahrs::with_settings(settings_disabled);
+    let _ahrs_disabled = Ahrs::with_settings(settings_disabled);
     // The internal threshold should be f32::MAX when range is 0
 
     // Test disabled rejection thresholds
@@ -38,7 +36,7 @@ fn test_settings_processing() {
 #[test]
 fn test_gravity_calculation() {
     // Test NWU convention (default)
-    let mut ahrs_nwu = Ahrs::new();
+    let ahrs_nwu = Ahrs::new();
     let gravity_nwu = ahrs_nwu.gravity();
 
     // At identity quaternion, gravity should point up in Z for NWU
@@ -52,7 +50,7 @@ fn test_gravity_calculation() {
         convention: Convention::Enu,
         ..Default::default()
     };
-    let mut ahrs_enu = Ahrs::with_settings(settings_enu);
+    let ahrs_enu = Ahrs::with_settings(settings_enu);
     let gravity_enu = ahrs_enu.gravity();
 
     // Should be same for identity quaternion
@@ -64,7 +62,7 @@ fn test_gravity_calculation() {
         convention: Convention::Ned,
         ..Default::default()
     };
-    let mut ahrs_ned = Ahrs::with_settings(settings_ned);
+    let ahrs_ned = Ahrs::with_settings(settings_ned);
     let gravity_ned = ahrs_ned.gravity();
 
     // In NED, gravity points down (negative Z)
