@@ -334,7 +334,7 @@ impl Ahrs {
 
             // Apply accelerometer feedback
             if !self.accelerometer_ignored {
-                half_accelerometer_feedback = self.half_accelerometer_feedback * 0.5;
+                half_accelerometer_feedback = self.half_accelerometer_feedback;
             }
         }
 
@@ -379,7 +379,7 @@ impl Ahrs {
 
             // Apply magnetometer feedback
             if !self.magnetometer_ignored {
-                half_magnetometer_feedback = self.half_magnetometer_feedback * 0.5;
+                half_magnetometer_feedback = self.half_magnetometer_feedback;
             }
         }
 
@@ -644,11 +644,20 @@ impl Ahrs {
     /// println!("Magnetometer ignored: {}", states.magnetometer_ignored);
     /// ```
     pub fn internal_states(&self) -> AhrsInternalStates {
+        // Calculate error angles using asin to match C implementation:
+        // FusionRadiansToDegrees(FusionAsin(2.0f * FusionVectorMagnitude(...)))
+        let accel_feedback_mag = self.half_accelerometer_feedback.magnitude();
+        let mag_feedback_mag = self.half_magnetometer_feedback.magnitude();
+
+        // Clamp to valid asin range [-1, 1] to handle numerical edge cases
+        let accel_sin_value = (2.0 * accel_feedback_mag).clamp(-1.0, 1.0);
+        let mag_sin_value = (2.0 * mag_feedback_mag).clamp(-1.0, 1.0);
+
         AhrsInternalStates {
-            acceleration_error: (self.half_accelerometer_feedback.magnitude() * 2.0).to_degrees(),
+            acceleration_error: accel_sin_value.asin().to_degrees(),
             accelerometer_ignored: self.accelerometer_ignored,
             acceleration_recovery_trigger: self.acceleration_recovery_trigger as f32,
-            magnetic_error: (self.half_magnetometer_feedback.magnitude() * 2.0).to_degrees(),
+            magnetic_error: mag_sin_value.asin().to_degrees(),
             magnetometer_ignored: self.magnetometer_ignored,
             magnetic_recovery_trigger: self.magnetic_recovery_trigger as f32,
         }

@@ -340,3 +340,187 @@ fn test_numerical_precision() {
         "Quaternion should be normalized"
     );
 }
+
+/// Test feedback scaling matches C implementation (no extra 0.5 factor)
+///
+/// The C implementation applies feedback directly without scaling:
+///   halfAccelerometerFeedback = ahrs->halfAccelerometerFeedback
+/// The feedback vectors are already "half" scaled because halfGravity is 0.5 scaled.
+#[test]
+fn test_feedback_scaling_parity() {
+    // Use high gain and low rejection threshold to make feedback effects visible
+    let settings = AhrsSettings {
+        gain: 1.0,
+        acceleration_rejection: 90.0, // Don't reject
+        magnetic_rejection: 90.0,
+        recovery_trigger_period: 0,
+        ..Default::default()
+    };
+    let mut ahrs = Ahrs::with_settings(settings);
+
+    // Skip initialization by running enough updates
+    let gyro = Vector3::zeros();
+    let accel = Vector3::new(0.0, 0.0, 1.0);
+    let mag = Vector3::new(1.0, 0.0, 0.0);
+    for _ in 0..400 {
+        ahrs.update(gyro, accel, mag, 0.01);
+    }
+    assert!(!ahrs.flags().initialising);
+
+    // Now introduce a tilt error
+    // Start from identity and apply tilted accelerometer
+    ahrs.set_quaternion(nalgebra::UnitQuaternion::identity());
+
+    // Tilted accelerometer (30 degrees pitch)
+    let tilted_accel = Vector3::new(0.5, 0.0, 0.866); // sin(30°), 0, cos(30°)
+
+    // Single update with tilted accelerometer
+    ahrs.update(gyro, tilted_accel, mag, 0.01);
+
+    // Get the quaternion after one update
+    let quat_after = ahrs.quaternion();
+    let (roll_after, pitch_after, _) = quat_after.euler_angles();
+
+    // With gain=1.0 and dt=0.01, the correction should be noticeable
+    // The pitch error is ~30°, half_feedback magnitude ≈ 0.5 * sin(30°) = 0.25
+    // With correct feedback (no extra 0.5), pitch correction ≈ 0.25 * 1.0 * 0.01 rad ≈ 0.14°
+    // With buggy feedback (extra 0.5), correction would be half: ≈ 0.07°
+    let pitch_after_deg = pitch_after.to_degrees();
+
+    // After multiple updates, the difference becomes more apparent
+    for _ in 0..50 {
+        ahrs.update(gyro, tilted_accel, mag, 0.01);
+    }
+
+    let quat_final = ahrs.quaternion();
+    let (_, pitch_final, _) = quat_final.euler_angles();
+    let pitch_deg = pitch_final.to_degrees();
+
+    // With correct feedback, pitch should converge toward the accelerometer indication (~30°)
+    // After 51 updates with gain=1.0, with CORRECT feedback we expect pitch > 10°
+    // With HALF feedback (bug), convergence is slower, pitch would be around 5-7°
+    assert!(
+        pitch_deg.abs() > 10.0,
+        "Pitch should converge toward ~30° tilt. Got {:.2}° after 51 updates.\n\
+         Expected >10° with correct feedback.\n\
+         If pitch is around 5-7°, feedback may be incorrectly halved.\n\
+         First update pitch: {:.2}°",
+        pitch_deg,
+        pitch_after_deg
+    );
+    assert!(
+        roll_after.to_degrees().abs() < 5.0,
+        "Roll should remain small, got {:.2}°",
+        roll_after.to_degrees()
+    );
+}
+
+/// Test internal_states error calculation uses asin (matches C implementation)
+///
+/// C implementation: FusionRadiansToDegrees(FusionAsin(2.0f * magnitude))
+/// This correctly converts from the cross product magnitude back to angle in degrees.
+#[test]
+fn test_internal_states_error_uses_asin() {
+    let settings = AhrsSettings {
+        acceleration_rejection: 90.0,
+        magnetic_rejection: 90.0,
+        recovery_trigger_period: 0,
+        ..Default::default()
+    };
+    let mut ahrs = Ahrs::with_settings(settings);
+
+    // Complete initialization
+    let gyro = Vector3::zeros();
+    let accel = Vector3::new(0.0, 0.0, 1.0);
+    let mag = Vector3::new(1.0, 0.0, 0.0);
+    for _ in 0..400 {
+        ahrs.update(gyro, accel, mag, 0.01);
+    }
+
+    // Create a known error angle
+    // Tilt accelerometer by 45 degrees
+    let angle_deg = 45.0_f32;
+    let angle_rad = angle_deg.to_radians();
+    let tilted_accel = Vector3::new(angle_rad.sin(), 0.0, angle_rad.cos());
+
+    ahrs.update(gyro, tilted_accel, mag, 0.01);
+
+    let states = ahrs.internal_states();
+
+    // The acceleration_error should report approximately 45 degrees
+    // The feedback vector magnitude is approximately 0.5 * sin(angle)
+    // So error = asin(2 * 0.5 * sin(angle)) = asin(sin(angle)) = angle (for angle < 90°)
+    //
+    // Without asin: error would be rad_to_deg(2 * 0.5 * sin(45°)) = rad_to_deg(0.707) ≈ 40.5°
+    // With asin: error = rad_to_deg(asin(sin(45°))) = 45°
+
+    let expected_error = angle_deg;
+    let tolerance = 5.0; // Allow some tolerance for filter effects
+
+    assert!(
+        (states.acceleration_error - expected_error).abs() < tolerance,
+        "Acceleration error should be approximately {:.1}° (the tilt angle), got {:.1}°. \
+         If error is ~{:.1}°, asin() may be missing.",
+        expected_error,
+        states.acceleration_error,
+        angle_rad.sin().to_degrees() * 2.0  // What you'd get without asin
+    );
+
+    // Test with a larger angle where the difference is more pronounced
+    let angle_deg_large = 60.0_f32;
+    let angle_rad_large = angle_deg_large.to_radians();
+    let tilted_accel_large = Vector3::new(angle_rad_large.sin(), 0.0, angle_rad_large.cos());
+
+    ahrs.update(gyro, tilted_accel_large, mag, 0.01);
+    let states_large = ahrs.internal_states();
+
+    // Without asin: error ≈ rad_to_deg(sin(60°)) = rad_to_deg(0.866) ≈ 49.6°
+    // With asin: error = 60°
+    assert!(
+        (states_large.acceleration_error - angle_deg_large).abs() < tolerance,
+        "Acceleration error for 60° tilt should be ~60°, got {:.1}°",
+        states_large.acceleration_error
+    );
+}
+
+/// Test calibration inertial function order of operations matches C implementation
+///
+/// C implementation: misalignment * ((uncalibrated - offset) * sensitivity)
+/// The offset is subtracted BEFORE sensitivity scaling.
+#[test]
+fn test_calibration_order_of_operations() {
+    use fusion_ahrs::calibration::calibrate_inertial;
+    use nalgebra::Matrix3;
+
+    let uncalibrated = Vector3::new(100.0, 200.0, 300.0);
+    let misalignment = Matrix3::identity();
+    let sensitivity = Vector3::new(0.5, 0.5, 0.5); // Non-unity to reveal order difference
+    let offset = Vector3::new(10.0, 20.0, 30.0);
+
+    let calibrated = calibrate_inertial(uncalibrated, misalignment, sensitivity, offset);
+
+    // C order: (uncalibrated - offset) * sensitivity
+    // (100-10, 200-20, 300-30) * (0.5, 0.5, 0.5) = (90, 180, 270) * 0.5 = (45, 90, 135)
+    let expected_c_order = Vector3::new(45.0, 90.0, 135.0);
+
+    // Wrong order would give: uncalibrated * sensitivity - offset
+    // (100, 200, 300) * (0.5, 0.5, 0.5) - (10, 20, 30) = (50, 100, 150) - (10, 20, 30) = (40, 80, 120)
+    let wrong_order_result = Vector3::new(40.0, 80.0, 120.0);
+
+    // Verify we get the C-compatible result, not the wrong order
+    assert!(
+        (calibrated - expected_c_order).magnitude() < EPSILON,
+        "Calibration should follow C order: (uncalibrated - offset) * sensitivity.\n\
+         Expected: {:?}\n\
+         Got: {:?}",
+        expected_c_order,
+        calibrated
+    );
+
+    // Explicitly verify we don't get the wrong order result
+    assert!(
+        (calibrated - wrong_order_result).magnitude() > 1.0,
+        "Calibration should NOT match wrong order result {:?}",
+        wrong_order_result
+    );
+}
