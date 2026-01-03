@@ -4,6 +4,8 @@ use nalgebra::{Matrix3, Vector3};
 
 /// Applies inertial sensor calibration (gyroscope and accelerometer)
 ///
+/// Matches C implementation order: `misalignment * ((uncalibrated - offset) * sensitivity)`
+///
 /// # Arguments
 /// * `uncalibrated` - Raw sensor reading
 /// * `misalignment` - 3x3 misalignment correction matrix
@@ -31,7 +33,8 @@ pub fn calibrate_inertial(
     sensitivity: Vector3<f32>,
     offset: Vector3<f32>,
 ) -> Vector3<f32> {
-    misalignment * (uncalibrated.component_mul(&sensitivity) - offset)
+    // C order: (uncalibrated - offset) * sensitivity, then apply misalignment
+    misalignment * (uncalibrated - offset).component_mul(&sensitivity)
 }
 
 /// Applies magnetometer calibration (hard and soft iron correction)
@@ -75,7 +78,9 @@ mod tests {
         let offset = Vector3::new(0.1, 0.2, 0.3);
 
         let calibrated = calibrate_inertial(raw, misalignment, sensitivity, offset);
-        let expected = Vector3::new(0.4, 0.8, 1.2); // (raw * sensitivity) - offset
+        // C order: (raw - offset) * sensitivity
+        // (1.0-0.1, 2.0-0.2, 3.0-0.3) * (0.5, 0.5, 0.5) = (0.9, 1.8, 2.7) * 0.5 = (0.45, 0.9, 1.35)
+        let expected = Vector3::new(0.45, 0.9, 1.35);
 
         assert!((calibrated - expected).magnitude() < 1e-6);
     }

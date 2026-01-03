@@ -1,9 +1,10 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use fusion_ahrs::Ahrs;
 use nalgebra::Vector3;
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 use std::f32::consts::PI;
+use std::hint::black_box;
 
 // Pre-generated sensor data to eliminate RNG overhead during benchmarks
 struct PreGeneratedData {
@@ -23,21 +24,21 @@ impl PreGeneratedData {
             let motion_phase = time * 0.5 * 2.0 * PI;
 
             let gyroscope = Vector3::new(
-                0.2 * motion_phase.sin() + rng.gen_range(-0.01..0.01),
-                0.2 * (motion_phase * 1.3).cos() + rng.gen_range(-0.01..0.01),
-                0.2 * (motion_phase * 0.7).sin() + rng.gen_range(-0.01..0.01),
+                0.2 * motion_phase.sin() + rng.random_range(-0.01..0.01),
+                0.2 * (motion_phase * 1.3).cos() + rng.random_range(-0.01..0.01),
+                0.2 * (motion_phase * 0.7).sin() + rng.random_range(-0.01..0.01),
             );
 
             let accelerometer = Vector3::new(
-                -0.1 * motion_phase.sin() + rng.gen_range(-0.002..0.002),
-                0.1 * motion_phase.cos() + rng.gen_range(-0.002..0.002),
-                1.0 + rng.gen_range(-0.002..0.002),
+                -0.1 * motion_phase.sin() + rng.random_range(-0.002..0.002),
+                0.1 * motion_phase.cos() + rng.random_range(-0.002..0.002),
+                1.0 + rng.random_range(-0.002..0.002),
             );
 
             let magnetometer = Vector3::new(
-                0.6 + 0.05 * motion_phase.cos() + rng.gen_range(-0.05..0.05),
-                0.05 * motion_phase.sin() + rng.gen_range(-0.05..0.05),
-                -0.8 + rng.gen_range(-0.05..0.05),
+                0.6 + 0.05 * motion_phase.cos() + rng.random_range(-0.05..0.05),
+                0.05 * motion_phase.sin() + rng.random_range(-0.05..0.05),
+                -0.8 + rng.random_range(-0.05..0.05),
             );
 
             samples.push((gyroscope, accelerometer, magnetometer));

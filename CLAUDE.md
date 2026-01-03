@@ -26,7 +26,7 @@ Port a C sensor fusion library (Fusion AHRS) to Rust, maintaining performance wh
 ### Dependencies
 - `nalgebra` for all vector/matrix operations (no-std compatible)
 - `plotters` for visualizations
-- C reference implementation available in `fusion-c/` directory
+- C reference implementation available in `fusion-c/` directory (git submodule — run `git submodule update --init` before exploring)
 
 ### Algorithm Features
 - Complementary filter combining high-pass gyroscope + low-pass accel/mag

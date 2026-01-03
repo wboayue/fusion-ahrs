@@ -171,8 +171,8 @@ fn test_update_method_consistency() -> Result<(), Box<dyn Error>> {
     let mut ahrs_full = Ahrs::new();
     let mut ahrs_no_mag = Ahrs::new();
 
-    for (i, data) in sensor_data.iter().enumerate() {
-        let delta_time = if i == 0 { 0.01 } else { 0.01 };
+    for data in sensor_data.iter() {
+        let delta_time = 0.01;
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
         let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
         let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);
@@ -233,7 +233,7 @@ fn test_numerical_stability() -> Result<(), Box<dyn Error>> {
 
     // Process all data and check quaternion stays normalized
     for (i, data) in sensor_data.iter().enumerate() {
-        let delta_time = if i == 0 { 0.01 } else { 0.01 };
+        let delta_time = 0.01;
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
         let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
         let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);
@@ -287,7 +287,7 @@ fn test_gravity_quaternion_consistency() -> Result<(), Box<dyn Error>> {
     let mut ahrs = Ahrs::new();
 
     for (i, data) in sensor_data.iter().enumerate() {
-        let delta_time = if i == 0 { 0.01 } else { 0.01 };
+        let delta_time = 0.01;
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
         let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
         let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);

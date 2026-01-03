@@ -20,13 +20,14 @@
 /// };
 /// let ahrs = Ahrs::with_settings(settings);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Convention {
     /// North-West-Up coordinate system
     ///
     /// - X axis points North
-    /// - Y axis points West  
+    /// - Y axis points West
     /// - Z axis points Up
+    #[default]
     Nwu,
     /// East-North-Up coordinate system
     ///
@@ -40,12 +41,6 @@ pub enum Convention {
     /// - Y axis points East
     /// - Z axis points Down
     Ned,
-}
-
-impl Default for Convention {
-    fn default() -> Self {
-        Self::Nwu
-    }
 }
 
 /// AHRS algorithm settings
@@ -103,10 +98,10 @@ impl Default for AhrsSettings {
         Self {
             convention: Convention::default(),
             gain: 0.5,
-            gyroscope_range: 2000.0,
-            acceleration_rejection: 10.0,
-            magnetic_rejection: 20.0,
-            recovery_trigger_period: 5 * 512, // 5 seconds at 512 Hz
+            gyroscope_range: 0.0,
+            acceleration_rejection: 90.0,
+            magnetic_rejection: 90.0,
+            recovery_trigger_period: 0,
         }
     }
 }
