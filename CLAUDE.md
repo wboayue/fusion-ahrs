@@ -7,6 +7,7 @@ Rust port of the Fusion AHRS C library, maintaining algorithm parity while follo
 ```bash
 cargo test                          # run all tests
 cargo build --no-default-features   # verify no_std / embedded compatibility
+cargo fmt                           # format (required before commit)
 cargo clippy                        # lint
 cargo bench                         # criterion benchmarks (ahrs_benchmarks)
 cargo run --example simple          # basic 6-DOF usage with plots
@@ -26,7 +27,7 @@ src/
   lib.rs          – public API re-exports
   ahrs.rs         – core AHRS algorithm (update, quaternion, gravity, linear/earth acceleration)
   types.rs        – AhrsSettings, AhrsInternalStates, AhrsFlags, Convention, OffsetSettings
-  offset.rs       – gyroscope offset correction (with inline unit tests)
+  offset.rs       – gyroscope offset correction
   calibration.rs  – calibrate_inertial(), calibrate_magnetic()
   math.rs         – math utilities, Vector3Ext / QuaternionExt traits
   axes.rs         – sensor axes alignment (axes_swap, AxesAlignment)
@@ -58,8 +59,12 @@ src/
 - Follow the C implementation's algorithm behavior exactly
 - Use nalgebra types consistently (`Vector3`, `UnitQuaternion`, `Matrix3`)
 - Maintain embedded compatibility (`cargo build --no-default-features`)
+- Keep `README.md` in sync with the code — when public APIs, constructors, or usage patterns change, update the README examples in the same PR
+- Most modules (`ahrs`, `axes`, `calibration`, `compass`, `math`, `offset`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
+- Commit messages follow conventional-commit style: `fix(scope): …`, `docs: …`, `feat(scope): …`, `chore(deps): …`, `fmt: …`
 
 ## Release Notes Guidelines
+- Published as GitHub Releases (no in-repo CHANGELOG); body is authored when tagging
 - Group changes under ## What's New and ## Bug Fixes headings as applicable
 - Each item gets an ### H3 heading with short description and PR number (e.g., ### Feature name (#123))
 - One-sentence summary below the heading
