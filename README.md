@@ -1,12 +1,12 @@
 [![Build](https://github.com/wboayue/fusion-ahrs/workflows/build/badge.svg)](https://github.com/wboayue/fusion-ahrs/actions/workflows/build.yml)
-[![License:MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 [![crates.io](https://img.shields.io/crates/v/fusion-ahrs.svg)](https://crates.io/crates/fusion-ahrs)
 [![Documentation](https://img.shields.io/badge/Documentation-green.svg)](https://docs.rs/fusion-ahrs/latest/fusion_ahrs/)
 [![Coverage Status](https://coveralls.io/repos/github/wboayue/fusion-ahrs/badge.png?branch=main)](https://coveralls.io/github/wboayue/fusion-ahrs?branch=main)
 
 # Fusion AHRS
 
-Fusion AHRS is a sensor fusion library for Inertial Measurement Units (IMUs), optimised for embedded systems. This is a Rust port of the original [C library](https://github.com/xioTechnologies/Fusion) by xioTechnologies, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics. The library is available on [crates.io](https://crates.io/crates/fusion-ahrs) and includes comprehensive examples demonstrating usage with sample sensor data.
+Rust port of xioTechnologies' [Fusion AHRS C library](https://github.com/xioTechnologies/Fusion) — sensor fusion for gyroscope, accelerometer, and magnetometer with `no_std` support. Available on [crates.io](https://crates.io/crates/fusion-ahrs); runnable examples in [`examples/`](examples/).
 
 ## Features
 
@@ -20,7 +20,7 @@ Fusion AHRS is a sensor fusion library for Inertial Measurement Units (IMUs), op
 
 ## Installation
 
-Run the following command
+Requires Rust 1.85+. `no_std` is the default — no feature flags needed.
 
 ```bash
 cargo add fusion-ahrs
@@ -31,6 +31,8 @@ cargo add fusion-ahrs
 The Attitude And Heading Reference System (AHRS) algorithm combines gyroscope, accelerometer, and magnetometer data into a single measurement of orientation relative to the Earth. The algorithm also supports systems that use only a gyroscope and accelerometer, and systems that use a gyroscope and accelerometer combined with an external source of heading measurement such as GPS.
 
 The algorithm is based on the revised AHRS algorithm presented in chapter 7 of [Madgwick's PhD thesis](https://x-io.co.uk/downloads/madgwick-phd-thesis.pdf). This is a different algorithm to the better-known initial AHRS algorithm presented in chapter 3, commonly referred to as the *Madgwick algorithm*.
+
+### How it works
 
 The algorithm calculates the orientation as the integration of the gyroscope summed with a feedback term. The feedback term is equal to the error in the current measurement of orientation as determined by the other sensors, multiplied by a gain. The algorithm therefore functions as a complementary filter that combines high-pass filtered gyroscope measurements with low-pass filtered measurements from other sensors with a corner frequency determined by the gain. A low gain will 'trust' the gyroscope more and so be more susceptible to drift. A high gain will increase the influence of other sensors and the errors that result from accelerations and magnetic distortions. A gain of zero will ignore the other sensors so that the measurement of orientation is determined by only the gyroscope.
 
@@ -253,9 +255,8 @@ Using the calibration model: **m**<sub>c</sub> = **S**(**m**<sub>u</sub> - **h**
 Fusion AHRS leverages the powerful nalgebra crate for all matrix and vector operations, providing:
 
 - **Type Safety**: Compile-time dimensional analysis prevents matrix dimension mismatches
-- **Performance**: Highly optimized SIMD operations where available
+- **Performance**: SIMD-optimised vector and matrix operations where available
 - **Interoperability**: Seamless integration with the broader Rust scientific computing ecosystem
-- **Generic Programming**: Support for different numeric types (f32, f64) and compile-time sizing
 
 ### Working with nalgebra Types
 
@@ -284,21 +285,33 @@ This integration allows you to easily combine Fusion AHRS with other nalgebra-ba
 
 ## Examples
 
-The library includes comprehensive examples:
+The library includes two runnable examples:
 
-- `simple.rs` - Basic AHRS usage with sample data
-- `advanced.rs` - Complete sensor fusion with calibration and offset correction
-
-Run examples with:
+- `simple.rs` — basic 6-DOF AHRS usage with sample data and plots
+- `advanced.rs` — 9-DOF sensor fusion with offset correction, custom settings, and internal-state diagnostics
 
 ```bash
 cargo run --example simple
+cargo run --example advanced
 ```
 
-## Performance
+## Benchmarks
 
-This Rust implementation maintains the same computational efficiency as the original C library while providing additional safety guarantees. Benchmarks show comparable performance with zero-cost abstractions ensuring no runtime overhead for the high-level API.
+Criterion benchmarks live in [`benches/ahrs_benchmarks.rs`](benches/ahrs_benchmarks.rs) and cover `update`, `update_no_magnetometer`, initialisation, steady state, batch updates, and per-output accessors. Reports land in `target/criterion/`.
+
+```bash
+cargo bench
+```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Licensed under either of:
+
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

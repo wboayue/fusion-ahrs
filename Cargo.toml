@@ -1,6 +1,6 @@
 [package]
 name = "fusion-ahrs"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Wil Boayue <wil@wsbsolutions.com>"]
@@ -9,7 +9,7 @@ readme = "README.md"
 homepage = "https://github.com/wboayue/fusion-ahrs/"
 repository = "https://github.com/wboayue/fusion-ahrs/"
 documentation = "https://docs.rs/fusion-ahrs/latest/fusion-ahrs/"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["ahrs", "imu", "sensor-fusion", "quaternion", "embedded"]
 categories = ["embedded", "algorithms", "science"]
 exclude = [
