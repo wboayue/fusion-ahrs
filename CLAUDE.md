@@ -5,9 +5,11 @@ Rust port of the Fusion AHRS C library, maintaining algorithm parity while follo
 ## Quick Reference
 
 ```bash
+git submodule update --init         # required for C parity tests (pulls fusion-c/)
 cargo test                          # run all tests
 cargo fmt                           # format (required before commit)
 cargo clippy                        # lint
+cargo doc --no-deps                 # build rustdoc for public API
 cargo bench                         # criterion benchmarks (ahrs_benchmarks)
 cargo run --example simple          # basic 6-DOF usage with plots
 cargo run --example advanced        # full 9-DOF with offset & diagnostics
@@ -17,7 +19,7 @@ cargo run --example advanced        # full 9-DOF with offset & diagnostics
 
 - **Input**: Gyroscope, accelerometer, magnetometer data as `nalgebra::Vector3<f32>`
 - **Output**: Orientation as `nalgebra::UnitQuaternion<f32>`
-- **Compatibility**: `#![no_std]` (edition 2024)
+- **Compatibility**: `#![no_std]` (edition 2024, MSRV 1.85)
 
 ### Source Layout
 
@@ -38,11 +40,10 @@ src/
 - Dev only: `csv`, `serde`, `plotters`, `criterion`, `rand`, `rand_pcg`
 - C reference implementation in `fusion-c/` (git submodule — `git submodule update --init`)
 
-### Code Quality Standards
-- **Modularity**: Single-responsibility, minimal public APIs
-- **Performance**: Zero-cost abstractions, minimal allocations
-- **Testability**: Comprehensive unit tests with provided test data
-- **Documentation**: Rustdoc for all public APIs with examples
+### Project-Specific Conventions
+- Extend math behavior through the `Vector3Ext` / `QuaternionExt` traits in `math.rs` rather than free functions
+- Settings types (`AhrsSettings`, `OffsetSettings`) are plain structs constructed directly — no builders
+- All public APIs carry rustdoc with at least one example; doctests should compile
 
 ### Algorithm Features
 - Complementary filter combining high-pass gyroscope + low-pass accel/mag
@@ -59,7 +60,15 @@ src/
 - Use nalgebra types consistently (`Vector3`, `UnitQuaternion`, `Matrix3`)
 - Maintain embedded compatibility: `src/lib.rs` is `#![no_std]` unconditionally — do not introduce `std`-only dependencies or APIs
 - Most modules (`ahrs`, `axes`, `calibration`, `compass`, `math`, `offset`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
-- Commit messages follow conventional-commit style: `fix(scope): …`, `docs: …`, `feat(scope): …`, `chore(deps): …`, `fmt: …`
+- Commit messages follow conventional-commit style. Common prefixes: `feat(scope): …`, `fix(scope): …`, `docs: …`, `test: …`, `refactor: …`, `bench: …`, `chore(scope): …` (e.g. `chore(deps)`, `chore(cargo)`, `chore(parity)`). `fmt: …` is the project-specific prefix for pure `cargo fmt` commits
+
+## C Parity Workflow
+Algorithm parity with the upstream C library is enforced via integration tests:
+- `tests/c_parity_tests.rs` — pure-Rust assertions that mirror C behavior on synthetic inputs
+- `tests/c_comparison_test.rs` — runs both implementations on `testdata/sensor_data.csv` and compares outputs (requires `fusion-c/` submodule)
+- `tests/verification_tests.rs` — broader algorithm-behavior checks
+
+When Rust output diverges from C, the C side is authoritative — port the C fix into the Rust implementation rather than adjusting the Rust output. If a deliberate divergence is unavoidable, document it inline and in the PR description.
 
 ## README Maintenance
 Keep `README.md` in sync with the code in the same PR that introduces the change — a stale README is worse than no README.
