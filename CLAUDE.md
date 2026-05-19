@@ -6,7 +6,6 @@ Rust port of the Fusion AHRS C library, maintaining algorithm parity while follo
 
 ```bash
 cargo test                          # run all tests
-cargo build --no-default-features   # verify no_std / embedded compatibility
 cargo fmt                           # format (required before commit)
 cargo clippy                        # lint
 cargo bench                         # criterion benchmarks (ahrs_benchmarks)
@@ -58,7 +57,7 @@ src/
 ## Development Guidelines
 - Follow the C implementation's algorithm behavior exactly
 - Use nalgebra types consistently (`Vector3`, `UnitQuaternion`, `Matrix3`)
-- Maintain embedded compatibility (`cargo build --no-default-features`)
+- Maintain embedded compatibility: `src/lib.rs` is `#![no_std]` unconditionally — do not introduce `std`-only dependencies or APIs
 - Most modules (`ahrs`, `axes`, `calibration`, `compass`, `math`, `offset`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
 - Commit messages follow conventional-commit style: `fix(scope): …`, `docs: …`, `feat(scope): …`, `chore(deps): …`, `fmt: …`
 
