@@ -1,5 +1,5 @@
 [![Build](https://github.com/wboayue/fusion-ahrs/workflows/build/badge.svg)](https://github.com/wboayue/fusion-ahrs/actions/workflows/build.yml)
-[![License:MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 [![crates.io](https://img.shields.io/crates/v/fusion-ahrs.svg)](https://crates.io/crates/fusion-ahrs)
 [![Documentation](https://img.shields.io/badge/Documentation-green.svg)](https://docs.rs/fusion-ahrs/latest/fusion_ahrs/)
 [![Coverage Status](https://coveralls.io/repos/github/wboayue/fusion-ahrs/badge.png?branch=main)](https://coveralls.io/github/wboayue/fusion-ahrs?branch=main)
@@ -305,4 +305,13 @@ cargo bench
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Licensed under either of:
+
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
