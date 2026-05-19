@@ -37,22 +37,19 @@ The algorithm calculates the orientation as the integration of the gyroscope sum
 ### Basic Example
 
 ```rust
-use fusion_ahrs::{Ahrs, AhrsSettings};
-use nalgebra::{Vector3, UnitQuaternion};
+use fusion_ahrs::Ahrs;
+use nalgebra::Vector3;
 
-// Create AHRS instance
-
-// Option 1: use default settings
+// Option 1: default settings
 let mut ahrs = Ahrs::new();
 
-// Option 2: provide custom settings
-// let settings = AhrsSettings::default();
+// Option 2: custom settings (see "Algorithm Settings" below)
 // let mut ahrs = Ahrs::with_settings(settings);
 
-// Sample sensor data using nalgebra vectors
+// Sample sensor data
 let gyroscope = Vector3::new(0.0, 0.0, 0.0);      // deg/s
 let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
-let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // normalized
+let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // µT (or any units; will be normalized)
 
 // Update algorithm (typically called at 100Hz or higher)
 let sample_period = 0.01; // 10ms
@@ -62,9 +59,9 @@ ahrs.update(gyroscope, accelerometer, magnetometer, sample_period);
 let quaternion = ahrs.quaternion();
 let (roll, pitch, yaw) = quaternion.euler_angles();
 
-println!("Roll: {:.1}°, Pitch: {:.1}°, Yaw: {:.1}°", 
-         roll.to_degrees(), 
-         pitch.to_degrees(), 
+println!("Roll: {:.1}°, Pitch: {:.1}°, Yaw: {:.1}°",
+         roll.to_degrees(),
+         pitch.to_degrees(),
          yaw.to_degrees()
 );
 ```
@@ -92,7 +89,10 @@ The magnetic rejection feature reduces the errors that result from temporary mag
 The algorithm provides four outputs: quaternion, gravity, linear acceleration, and Earth acceleration. The quaternion describes the orientation of the sensor relative to the Earth. This can be converted to a rotation matrix using nalgebra's `to_rotation_matrix()` method or to Euler angles using the `euler_angles()` method. Gravity is a direction of gravity in the sensor coordinate frame. Linear acceleration is the accelerometer measurement with gravity removed. Earth acceleration is the accelerometer measurement in the Earth coordinate frame with gravity removed. The algorithm supports North-West-Up (NWU), East-North-Up (ENU), and North-East-Down (NED) axes conventions.
 
 ```rust
+use fusion_ahrs::Ahrs;
 use nalgebra::{Matrix3, Vector3, UnitQuaternion};
+
+let mut ahrs = Ahrs::new();
 
 // Get all algorithm outputs
 let quaternion: UnitQuaternion<f32> = ahrs.quaternion();
@@ -110,7 +110,7 @@ let euler_angles = quaternion.euler_angles(); // (roll, pitch, yaw)
 The AHRS algorithm settings are defined by the `AhrsSettings` struct:
 
 ```rust
-use fusion_ahrs::{AhrsSettings, Convention};
+use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
 
 let settings = AhrsSettings {
     convention: Convention::Nwu,
@@ -138,6 +138,9 @@ let mut ahrs = Ahrs::with_settings(settings);
 The AHRS algorithm internal states can be accessed through the `internal_states()` method:
 
 ```rust
+use fusion_ahrs::Ahrs;
+
+let ahrs = Ahrs::new();
 let states = ahrs.internal_states();
 println!("Acceleration error: {:.1}°", states.acceleration_error);
 println!("Accelerometer ignored: {}", states.accelerometer_ignored);
@@ -157,6 +160,9 @@ println!("Accelerometer ignored: {}", states.accelerometer_ignored);
 The AHRS algorithm flags can be accessed through the `flags()` method:
 
 ```rust
+use fusion_ahrs::Ahrs;
+
+let ahrs = Ahrs::new();
 let flags = ahrs.flags();
 if flags.initialising {
     println!("Algorithm is still initialising");
@@ -258,6 +264,8 @@ All sensor inputs and algorithm outputs use standard nalgebra types:
 ```rust
 use nalgebra::{Vector3, UnitQuaternion, Matrix3};
 use fusion_ahrs::Ahrs;
+
+let ahrs = Ahrs::new();
 
 // All sensor data uses Vector3<f32>
 let gyro_data: Vector3<f32> = Vector3::new(0.1, 0.05, -0.02);
