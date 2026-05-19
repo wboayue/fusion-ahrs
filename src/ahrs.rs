@@ -427,14 +427,8 @@ impl Ahrs {
         accelerometer: Vector3<f32>,
         delta_time: f32,
     ) {
-        // Update with zero magnetometer
         self.update(gyroscope, accelerometer, Vector3::zeros(), delta_time);
 
-        // Force magnetometer to be ignored
-        self.magnetometer_ignored = true;
-        self.half_magnetometer_feedback = Vector3::zeros();
-
-        // Zero heading during initialization to prevent drift
         if self.initialising {
             self.set_heading(0.0);
         }
