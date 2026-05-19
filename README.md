@@ -50,7 +50,7 @@ let mut ahrs = Ahrs::new();
 // let mut ahrs = Ahrs::with_settings(settings);
 
 // Sample sensor data using nalgebra vectors
-let gyroscope = Vector3::new(0.0, 0.0, 0.0);      // rad/s
+let gyroscope = Vector3::new(0.0, 0.0, 0.0);      // deg/s
 let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
 let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // normalized
 
@@ -121,7 +121,7 @@ let settings = AhrsSettings {
     recovery_trigger_period: 500,
 };
 
-let mut ahrs = Ahrs::new(settings);
+let mut ahrs = Ahrs::with_settings(settings);
 ```
 
 | Setting                   | Type       | Description |
@@ -182,15 +182,12 @@ let settings = OffsetSettings::default();
 let sample_rate = 100.0; // Hz
 let mut offset = Offset::new(settings, sample_rate);
 
-// Update with gyroscope measurements
+// Apply offset correction — update() returns the corrected reading
 let gyroscope = Vector3::new(0.1, -0.05, 0.02); // Small offsets while stationary
-offset.update(gyroscope);
+let corrected_gyroscope: Vector3<f32> = offset.update(gyroscope);
 
-// Get the calculated offset
+// Inspect the current offset estimate at any time
 let calculated_offset: Vector3<f32> = offset.offset();
-
-// Apply offset correction to raw gyroscope data
-let corrected_gyroscope = gyroscope - calculated_offset;
 ```
 
 The algorithm calculates the gyroscope offset by detecting the stationary periods that occur naturally in most applications. Gyroscope measurements are sampled during these periods and low-pass filtered to obtain the gyroscope offset. The algorithm requires that gyroscope measurements do not exceed ±3 degrees per second while stationary. Basic gyroscope offset calibration may be necessary to ensure that the initial offset plus measurement noise is within these bounds.
