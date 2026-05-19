@@ -241,7 +241,7 @@ pub struct OffsetSettings {
     /// Used to compute the filter coefficient as `2π × cutoff_frequency / sample_rate`.
     /// Lower values provide more stability but slower convergence.
     pub cutoff_frequency: f32,
-    /// Timeout period in seconds before offset estimation begins (default 5.0)
+    /// Timeout period in seconds before offset estimation begins (default 3.0)
     ///
     /// Duration the sensor must remain stationary before offset
     /// correction begins. Longer timeouts reduce false corrections.
@@ -257,7 +257,7 @@ impl Default for OffsetSettings {
     fn default() -> Self {
         Self {
             cutoff_frequency: 0.02,
-            timeout: 5.0,
+            timeout: 3.0,
             threshold: 3.0,
         }
     }
