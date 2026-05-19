@@ -427,16 +427,10 @@ impl Ahrs {
         accelerometer: Vector3<f32>,
         delta_time: f32,
     ) {
-        // Update with zero magnetometer
         self.update(gyroscope, accelerometer, Vector3::zeros(), delta_time);
 
-        // Force magnetometer to be ignored
-        self.magnetometer_ignored = true;
-        self.half_magnetometer_feedback = Vector3::zeros();
-
-        // Zero heading during initialization to prevent drift
         if self.initialising {
-            self.zero_heading();
+            self.set_heading(0.0);
         }
     }
 
@@ -739,13 +733,16 @@ impl Ahrs {
     /// assert!((yaw.to_degrees() - 90.0).abs() < 1.0);
     /// ```
     pub fn set_heading(&mut self, heading: f32) {
-        let heading_rad = heading * DEG_TO_RAD;
-
-        // Extract current roll and pitch
-        let (roll, pitch, _) = self.quaternion.euler_angles();
-
-        // Create new quaternion with same roll/pitch but new heading
-        self.quaternion = UnitQuaternion::from_euler_angles(roll, pitch, heading_rad);
+        let q = self.quaternion.as_ref();
+        let yaw = (q.w * q.k + q.i * q.j).atan2(0.5 - q.j * q.j - q.k * q.k);
+        let half_yaw_minus_heading = 0.5 * (yaw - heading * DEG_TO_RAD);
+        let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
+            half_yaw_minus_heading.cos(),
+            0.0,
+            0.0,
+            -half_yaw_minus_heading.sin(),
+        ));
+        self.quaternion = rotation * self.quaternion;
     }
 
     // Private helper methods
@@ -870,12 +867,6 @@ impl Ahrs {
 
         // Normalize to maintain unit quaternion
         self.quaternion = UnitQuaternion::from_quaternion(new_quaternion);
-    }
-
-    /// Zero the heading while preserving roll and pitch
-    fn zero_heading(&mut self) {
-        let (roll, pitch, _) = self.quaternion.euler_angles();
-        self.quaternion = UnitQuaternion::from_euler_angles(roll, pitch, 0.0);
     }
 }
 

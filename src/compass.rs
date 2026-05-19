@@ -1,6 +1,6 @@
 //! Tilt-compensated compass implementation for the Fusion AHRS library
 
-use crate::math::RAD_TO_DEG;
+use crate::math::{RAD_TO_DEG, Vector3Ext};
 use crate::types::Convention;
 use nalgebra::Vector3;
 #[allow(unused_imports)]
@@ -48,64 +48,25 @@ pub fn calculate_heading(
 
 /// Calculate heading for NWU (North-West-Up) convention
 fn calculate_heading_nwu(accelerometer: Vector3<f32>, magnetometer: Vector3<f32>) -> f32 {
-    // Calculate west vector: accel × mag (normalized)
-    let west = safe_normalize(accelerometer.cross(&magnetometer));
-
-    // Calculate north vector: west × accel (normalized)
-    let north = safe_normalize(west.cross(&accelerometer));
-
-    // Calculate heading: atan2(west.x, north.x)
-    let heading_rad = west.x.atan2(north.x);
-
-    heading_rad * RAD_TO_DEG
+    let west = accelerometer.cross(&magnetometer).safe_normalize();
+    let north = west.cross(&accelerometer).safe_normalize();
+    west.x.atan2(north.x) * RAD_TO_DEG
 }
 
 /// Calculate heading for ENU (East-North-Up) convention
 fn calculate_heading_enu(accelerometer: Vector3<f32>, magnetometer: Vector3<f32>) -> f32 {
-    // Calculate west vector: accel × mag (normalized)
-    let west = safe_normalize(accelerometer.cross(&magnetometer));
-
-    // Calculate north vector: west × accel (normalized)
-    let north = safe_normalize(west.cross(&accelerometer));
-
-    // Calculate east vector: -west
+    let west = accelerometer.cross(&magnetometer).safe_normalize();
+    let north = west.cross(&accelerometer).safe_normalize();
     let east = -west;
-
-    // Calculate heading: atan2(north.x, east.x)
-    let heading_rad = north.x.atan2(east.x);
-
-    heading_rad * RAD_TO_DEG
+    north.x.atan2(east.x) * RAD_TO_DEG
 }
 
 /// Calculate heading for NED (North-East-Down) convention
 fn calculate_heading_ned(accelerometer: Vector3<f32>, magnetometer: Vector3<f32>) -> f32 {
-    // Calculate up vector: -accel (inverted gravity)
     let up = -accelerometer;
-
-    // Calculate west vector: up × mag (normalized)
-    let west = safe_normalize(up.cross(&magnetometer));
-
-    // Calculate north vector: west × up (normalized)
-    let north = safe_normalize(west.cross(&up));
-
-    // Calculate heading: atan2(west.x, north.x)
-    let heading_rad = west.x.atan2(north.x);
-
-    heading_rad * RAD_TO_DEG
-}
-
-/// Safely normalize a vector with standard square root for accuracy
-fn safe_normalize(vector: Vector3<f32>) -> Vector3<f32> {
-    let magnitude_squared = vector.magnitude_squared();
-
-    if magnitude_squared == 0.0 {
-        return Vector3::zeros();
-    }
-
-    // Use standard square root for accuracy
-    let magnitude_reciprocal = 1.0 / magnitude_squared.sqrt();
-
-    vector * magnitude_reciprocal
+    let west = up.cross(&magnetometer).safe_normalize();
+    let north = west.cross(&up).safe_normalize();
+    west.x.atan2(north.x) * RAD_TO_DEG
 }
 
 #[cfg(test)]
@@ -266,25 +227,6 @@ mod tests {
     }
 
     #[test]
-    fn test_safe_normalize() {
-        // Test normal vector
-        let v = Vector3::new(3.0, 4.0, 0.0);
-        let normalized = safe_normalize(v);
-        assert!((normalized.magnitude() - 1.0).abs() < 1e-6);
-
-        // Test zero vector
-        let zero = Vector3::zeros();
-        let normalized_zero = safe_normalize(zero);
-        assert_eq!(normalized_zero, Vector3::zeros());
-
-        // Test very small vector
-        let tiny = Vector3::new(1e-10, 1e-10, 1e-10);
-        let normalized_tiny = safe_normalize(tiny);
-        // Should not crash and should produce valid result
-        assert!(normalized_tiny.magnitude() <= 1.0);
-    }
-
-    #[test]
     fn test_compass_heading_range() {
         // Test that headings are in valid range (-180° to +180°)
         let level_accel = Vector3::new(0.0, 0.0, 1.0);
@@ -318,7 +260,7 @@ mod tests {
         assert!((cross.z - 1.0f32).abs() < 1e-6);
 
         // Test normalization preserves direction
-        let normalized = safe_normalize(cross);
+        let normalized = cross.safe_normalize();
         assert!((normalized.z - 1.0f32).abs() < 1e-6);
         assert!((normalized.magnitude() - 1.0f32).abs() < 1e-6);
     }

@@ -2,8 +2,9 @@
 name = "fusion-ahrs"
 version = "0.5.0"
 edition = "2024"
+rust-version = "1.85"
 authors = ["Wil Boayue <wil@wsbsolutions.com>"]
-description = "A Rust port of the C library by xioTechnologies, providing memory safety and zero-cost abstractions while maintaining the same performance characteristics."
+description = "Rust port of xioTechnologies' Fusion AHRS C library — sensor fusion for gyroscope, accelerometer, and magnetometer with no_std support."
 readme = "README.md"
 homepage = "https://github.com/wboayue/fusion-ahrs/"
 repository = "https://github.com/wboayue/fusion-ahrs/"
@@ -15,6 +16,12 @@ exclude = [
     "justfile",
     "CLAUDE.md",
     "fusion-c",
+    ".github",
+    ".config",
+    ".gitmodules",
+    "testdata",
+    "*.png",
+    "tarpaulin-report.html",
 ]
 
 [dependencies]
