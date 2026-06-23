@@ -79,8 +79,18 @@ Keep `README.md` in sync with the code in the same PR that introduces the change
 - **Dependencies & MSRV**: bumping `nalgebra`, the Rust edition, or MSRV requires updating the README's dependency snippet and any version callouts.
 - **Verify**: every code block in the README must compile against current `src/`. If unsure, copy the snippet into an example or doctest and run it.
 
+## Changelog Maintenance
+Keep `CHANGELOG.md` following [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/). The project follows [Semantic Versioning](https://semver.org/).
+- **Update in the same PR** that makes a user-facing change — never batch changelog edits at release time. A stale changelog is worse than none.
+- Maintain an `## [Unreleased]` section at the top; add new entries there as work lands.
+- Group entries under these headings (only include those that apply): `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
+- Write for humans, not machines: describe the impact, don't dump commit messages or diffs. Skip purely internal churn (refactors, fmt, CI) unless it affects users.
+- On release: rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD`, then start a fresh empty `## [Unreleased]` above it. Keep latest version first.
+- Maintain linkable version reference links at the bottom (compare URLs, e.g. `[0.6.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.5.0...v0.6.0`).
+- Bump the version in `Cargo.toml` to match the released version in the same PR.
+
 ## Release Notes Guidelines
-- Published as GitHub Releases (no in-repo CHANGELOG); body is authored when tagging
+- Published as GitHub Releases, derived from the `CHANGELOG.md` entry for that version; body is authored/expanded when tagging
 - Group changes under ## What's New and ## Bug Fixes headings as applicable
 - Each item gets an ### H3 heading with short description and PR number (e.g., ### Feature name (#123))
 - One-sentence summary below the heading
