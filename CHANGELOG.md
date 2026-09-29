@@ -32,6 +32,7 @@ Synced with upstream Fusion C `a8d7224` (2026-09-18) (#40). This release contain
 - `Ahrs::initialise` and `Ahrs::reset`; use `Ahrs::restart`.
 
 ### Fixed
+- The crate's `documentation` link now points to the docs.rs page; it previously returned 404.
 - Gyroscope overrange recovery now preserves the last accelerometer reading, so `linear_acceleration` and `earth_acceleration` remain valid during recovery.
 - The accelerometer/magnetometer residual is now normalised when the sensor and reference are exactly perpendicular, matching upstream.
 - `earth_acceleration` now uses the upstream formulation (rotated accelerometer minus gravity) for closer numeric parity.
