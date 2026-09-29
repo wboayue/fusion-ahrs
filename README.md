@@ -353,7 +353,7 @@ cargo bench
 The crate follows [Semantic Versioning](https://semver.org/). From 1.0:
 
 - **Bug fixes**: fixes to the Rust port that don't change the API ship in patch releases, even when they change outputs; the changelog notes any output change.
-- **Upstream changes**: the crate tracks the [Fusion C library](https://github.com/xioTechnologies/Fusion). Upstream fixes that change outputs ship in minor releases; upstream API changes that add or rename settings, flags, or functions ship in a new major release, since the public settings and state structs have public fields.
+- **Upstream changes**: the crate tracks the [Fusion C library](https://github.com/xioTechnologies/Fusion). Upstream fixes that change outputs ship in minor releases; new upstream functions ship in minor releases. Upstream changes that add settings, state, or flag fields, add enum variants, or rename or remove anything ship in a new major release, since the public structs have public fields and the enums are exhaustive.
 - **MSRV**: the minimum supported Rust version (currently 1.85) is raised only in a minor release, never a patch release, and each bump is noted in the changelog.
 - **nalgebra**: each supported nalgebra version has its own feature (`nalgebra-0_35`, …). New versions are added alongside existing ones in minor releases; removing one is a major change. A feature may require a newer Rust than the crate MSRV if nalgebra does.
 - **Numeric output**: results may change in the last bits between minor releases when parity with the C library improves; such changes are noted in the changelog.
