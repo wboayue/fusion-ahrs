@@ -63,6 +63,8 @@ pub use ahrs::Ahrs;
 pub use axes::{AxesAlignment, axes_swap};
 pub use calibration::{calibrate_inertial, calibrate_magnetic};
 pub use compass::calculate_heading;
-pub use math::{DEG_TO_RAD, QuaternionExt, RAD_TO_DEG, Vector3Ext};
+pub use math::{
+    DEG_TO_RAD, Euler, Matrix, Quaternion, QuaternionExt, RAD_TO_DEG, Vector, Vector3Ext,
+};
 pub use offset::Offset;
 pub use types::*;

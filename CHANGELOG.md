@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `Vector`, `Quaternion`, `Matrix`, and `Euler` math types mirroring the C library's `FusionMath.h`, with operations that match C bit for bit. They are the first step toward removing `nalgebra` from the public API before 1.0; existing `nalgebra`-based APIs are unchanged in this release.
+
 ## [0.8.0] - 2026-09-28
 
 Synced with upstream Fusion C `a8d7224` (2026-09-18) (#40). This release contains breaking API changes that mirror upstream.
