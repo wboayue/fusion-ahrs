@@ -106,6 +106,20 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  # Build docs the way docs.rs does: nightly with --cfg docsrs, which enables
+  # the unstable doc_cfg feature used for feature badges
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Rustdoc (docs.rs)
+        run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: --cfg docsrs -D warnings
+
   # Declared rust-version; the nalgebra feature needs nalgebra's MSRV (1.89)
   msrv:
     runs-on: ubuntu-latest

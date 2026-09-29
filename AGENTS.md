@@ -72,7 +72,7 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 - Most modules (`ahrs`, `bias`, `calibration`, `compass`, `math`, `remap`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
 - API stability follows the README "Versioning" section: from 1.0, new settings/state fields, renamed or removed items, argument reorders, and removed nalgebra features are major-version changes; MSRV bumps are minor-only and go in the changelog
 - Ported functions keep the C library's argument order (e.g. `calculate_heading(accelerometer, magnetometer, convention)` like `FusionCompass`)
-- CI (`build.yml`) runs tests on stable, a `lint` job (fmt, clippy with and without features, rustdoc `-D warnings`), and an `msrv` job (Rust 1.85, host and `thumbv7em-none-eabihf`, default features)
+- CI (`build.yml`) runs tests on stable, a `lint` job (fmt, clippy with and without features, rustdoc `-D warnings`), a `docs` job (nightly rustdoc with `--cfg docsrs`, as docs.rs builds), and an `msrv` job (Rust 1.85, host and `thumbv7em-none-eabihf`, default features)
 - Exact `f32` test constants (e.g. adjacent values around a boundary): use `f32::from_bits(0x…)`; long literals trip clippy `excessive_precision`
 - Commit messages follow conventional-commit style. Common prefixes: `feat(scope): …`, `fix(scope): …`, `docs: …`, `test: …`, `refactor: …`, `bench: …`, `chore(scope): …` (e.g. `chore(deps)`, `chore(cargo)`, `chore(parity)`). `fmt: …` is the project-specific prefix for pure `cargo fmt` commits
 
