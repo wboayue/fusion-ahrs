@@ -3,15 +3,15 @@ members = ["fusion-c-sys"]
 
 [package]
 name = "fusion-ahrs"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Wil Boayue <wil@wsbsolutions.com>"]
+authors = ["Wil Boayue <wil@wsblabs.com>"]
 description = "Rust port of xioTechnologies' Fusion AHRS C library — sensor fusion for gyroscope, accelerometer, and magnetometer with no_std support."
 readme = "README.md"
 homepage = "https://github.com/wboayue/fusion-ahrs/"
 repository = "https://github.com/wboayue/fusion-ahrs/"
-documentation = "https://docs.rs/fusion-ahrs/latest/fusion-ahrs/"
+documentation = "https://docs.rs/fusion-ahrs/latest/fusion_ahrs/"
 license = "MIT OR Apache-2.0"
 keywords = ["ahrs", "imu", "sensor-fusion", "quaternion", "embedded"]
 categories = ["embedded", "algorithms", "science"]
