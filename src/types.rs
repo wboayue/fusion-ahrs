@@ -46,6 +46,18 @@ pub enum Convention {
 }
 
 impl Convention {
+    /// All conventions, in declaration order.
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Convention;
+    ///
+    /// for convention in Convention::ALL {
+    ///     println!("{convention}");
+    /// }
+    /// ```
+    pub const ALL: [Convention; 3] = [Convention::Nwu, Convention::Enu, Convention::Ned];
+
     /// Returns the convention as a string, matching the C library's
     /// `FusionConventionToString`.
     ///
@@ -93,7 +105,7 @@ impl fmt::Display for Convention {
 /// ```
 #[derive(Debug, Clone, Copy)]
 pub struct AhrsSettings {
-    /// Sample rate in Hz (default 100)
+    /// Sample rate in Hz (default 100). Must be positive.
     ///
     /// Determines the nominal sample period used to integrate the gyroscope.
     /// Use [`Ahrs::set_sample_period`](crate::Ahrs::set_sample_period) to

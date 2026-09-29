@@ -14,6 +14,8 @@ Synced with upstream Fusion C `a8d7224` (2026-09-18). This release contains brea
 - `Ahrs::set_sample_period` to compensate for per-sample timing jitter.
 - `Ahrs::skip_startup` to skip the startup gain ramp when the initial orientation is already known.
 - `Ahrs::restart`, replacing `initialise`/`reset`.
+- `Convention::ALL` and `AxesAlignment::ALL` constants for iterating over every variant.
+- `Ahrs` now implements `Debug` and `Clone`.
 - `Display` and `as_str()` for `Convention` (e.g. `"North, West, Up (NWU)"`) and `AxesAlignment` (e.g. `"+Y-X+Z"`), matching upstream's to-string functions.
 
 ### Changed
@@ -21,6 +23,7 @@ Synced with upstream Fusion C `a8d7224` (2026-09-18). This release contains brea
 - **Breaking:** `AhrsSettings::recovery_trigger_period` (`u32`, samples) replaced by `rejection_timeout` (`f32`, seconds).
 - **Breaking:** `AhrsSettings::default()` now disables acceleration and magnetic rejection (`acceleration_rejection` and `magnetic_rejection` are `0.0`, previously `90.0`). Behavior is unchanged, since rejection was already disabled by the zero timeout.
 - **Breaking:** `AhrsFlags::initialising` renamed to `startup`; `AhrsFlags::angular_rate_recovery` renamed to `overrange_recovery`.
+- Vector and quaternion normalisation now multiply by the reciprocal of the norm, as the C library does. This affects `Vector3Ext::safe_normalize` and roughly halves the remaining numeric difference from C.
 - The startup gain ramp now steps once per update based on the configured sample rate, rather than on the per-call time step.
 
 ### Deprecated

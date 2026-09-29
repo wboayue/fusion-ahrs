@@ -45,10 +45,11 @@ jobs:
             sudo apt update
             sudo apt install libfontconfig1-dev pkg-config
 
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Test
-        run: |
-          cargo install cargo-nextest
-          cargo nextest run --profile ci
+        run: cargo nextest run --profile ci
 
       # nextest does not run doctests
       - name: Doctests

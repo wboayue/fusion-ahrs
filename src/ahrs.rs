@@ -20,11 +20,35 @@ const RECOVERY_DECREMENT: i32 = 9;
 /// Implements a complementary filter that fuses gyroscope, accelerometer,
 /// and magnetometer data to estimate orientation. Features automatic sensor
 /// rejection during motion/interference and recovery mechanisms.
+#[derive(Debug, Clone)]
 pub struct Ahrs {
-    /// Algorithm settings
+    /// Algorithm settings as provided by the user
     settings: AhrsSettings,
+    /// Values derived from the settings
+    config: Config,
+    /// Current orientation quaternion (WXYZ format)
+    quaternion: UnitQuaternion<f32>,
+    /// Last accelerometer reading for linear acceleration calculation
+    accelerometer: Vector3<f32>,
+    /// Whether the algorithm is in startup
+    startup: bool,
+    /// Gain ramped down during startup
+    startup_gain: f32,
+    /// Gyroscope overrange recovery flag
+    overrange_recovery: bool,
+    /// Accelerometer rejection state
+    acceleration: Rejection,
+    /// Magnetometer rejection state
+    magnetic: Rejection,
+}
+
+/// Values derived from [`AhrsSettings`]
+#[derive(Debug, Clone, Copy)]
+struct Config {
     /// Sample period in seconds
     sample_period: f32,
+    /// Algorithm gain
+    gain: f32,
     /// Startup gain decrement per update
     startup_gain_rate: f32,
     /// Whether gyroscope overrange detection is enabled
@@ -37,32 +61,123 @@ pub struct Ahrs {
     magnetic_rejection: f32,
     /// Rejection timeout in samples
     rejection_timeout: i32,
-    /// Current orientation quaternion (WXYZ format)
-    quaternion: UnitQuaternion<f32>,
-    /// Last accelerometer reading for linear acceleration calculation
-    accelerometer: Vector3<f32>,
-    /// Whether the algorithm is in startup
-    startup: bool,
-    /// Gain ramped down during startup
-    startup_gain: f32,
-    /// Gyroscope overrange recovery flag
-    overrange_recovery: bool,
-    /// Accelerometer residual scaled by 0.5
-    half_accelerometer_residual: Vector3<f32>,
-    /// Acceleration recovery trigger in samples
-    acceleration_recovery_trigger: i32,
-    /// Acceleration recovery threshold in samples
-    acceleration_recovery_threshold: i32,
-    /// Accelerometer ignored flag
-    accelerometer_ignored: bool,
-    /// Magnetometer residual scaled by 0.5
-    half_magnetometer_residual: Vector3<f32>,
-    /// Magnetic recovery trigger in samples
-    magnetic_recovery_trigger: i32,
-    /// Magnetic recovery threshold in samples
-    magnetic_recovery_threshold: i32,
-    /// Magnetometer ignored flag
-    magnetometer_ignored: bool,
+}
+
+impl Config {
+    fn new(settings: &AhrsSettings) -> Self {
+        debug_assert!(settings.sample_rate > 0.0, "sample_rate must be positive");
+
+        let sample_period = 1.0 / settings.sample_rate;
+
+        // Disable acceleration and magnetic rejection if gain or timeout is zero
+        let rejection_enabled = settings.gain != 0.0 && settings.rejection_timeout != 0.0;
+        let rejection = |degrees: f32| {
+            if rejection_enabled {
+                rejection_threshold(degrees)
+            } else {
+                f32::MAX
+            }
+        };
+
+        Self {
+            sample_period,
+            gain: settings.gain,
+            startup_gain_rate: ((INITIAL_STARTUP_GAIN - settings.gain) / STARTUP_PERIOD)
+                * sample_period,
+            overrange_enabled: settings.gyroscope_range > 0.0,
+            overrange_threshold: OVERRANGE_FACTOR * settings.gyroscope_range,
+            acceleration_rejection: rejection(settings.acceleration_rejection),
+            magnetic_rejection: rejection(settings.magnetic_rejection),
+            rejection_timeout: (settings.sample_rate * settings.rejection_timeout) as i32,
+        }
+    }
+}
+
+/// Rejection and recovery state for one sensor (accelerometer or magnetometer)
+#[derive(Debug, Clone, Copy)]
+struct Rejection {
+    /// Residual between sensor and algorithm reference, scaled by 0.5
+    half_residual: Vector3<f32>,
+    /// Recovery trigger in samples
+    recovery_trigger: i32,
+    /// Recovery threshold in samples
+    recovery_threshold: i32,
+    /// Whether the sensor was ignored by the last update
+    ignored: bool,
+}
+
+impl Rejection {
+    fn new(timeout: i32) -> Self {
+        Self {
+            half_residual: Vector3::zeros(),
+            recovery_trigger: 0,
+            recovery_threshold: timeout,
+            ignored: false,
+        }
+    }
+
+    /// Mark the sensor ignored for an update with no measurement
+    fn skip(&mut self) {
+        self.ignored = true;
+    }
+
+    /// Update with a new residual and return the feedback to apply, scaled by 0.5
+    fn update(
+        &mut self,
+        half_residual: Vector3<f32>,
+        startup: bool,
+        rejection: f32,
+        timeout: i32,
+    ) -> Vector3<f32> {
+        self.half_residual = half_residual;
+
+        // Don't ignore sensor if error below threshold
+        if startup || half_residual.magnitude_squared() <= rejection {
+            self.ignored = false;
+            self.recovery_trigger = self.recovery_trigger.saturating_sub(RECOVERY_DECREMENT);
+        } else {
+            self.ignored = true;
+            self.recovery_trigger = self.recovery_trigger.saturating_add(1);
+        }
+
+        // Don't ignore sensor during recovery
+        if self.recovery() {
+            self.recovery_threshold = 0;
+            self.ignored = false;
+        } else {
+            self.recovery_threshold = timeout;
+        }
+        self.recovery_trigger = clamp(self.recovery_trigger, 0, timeout);
+
+        if self.ignored {
+            Vector3::zeros()
+        } else {
+            self.half_residual
+        }
+    }
+
+    /// Whether recovery is active
+    fn recovery(&self) -> bool {
+        self.recovery_trigger > self.recovery_threshold
+    }
+
+    /// Error between sensor and algorithm reference in degrees
+    fn error(&self) -> f32 {
+        // Clamp to valid asin range to match FusionArcSin
+        (2.0 * self.half_residual.magnitude())
+            .clamp(-1.0, 1.0)
+            .asin()
+            .to_degrees()
+    }
+
+    /// Recovery trigger as a fraction of the timeout
+    fn recovery_trigger(&self, timeout: i32) -> f32 {
+        if timeout == 0 {
+            0.0
+        } else {
+            self.recovery_trigger as f32 / timeout as f32
+        }
+    }
 }
 
 impl Ahrs {
@@ -123,33 +238,18 @@ impl Ahrs {
     /// assert_eq!(ahrs.get_settings().gain, 0.75);
     /// ```
     pub fn with_settings(settings: AhrsSettings) -> Self {
-        let mut ahrs = Ahrs {
+        let config = Config::new(&settings);
+        Ahrs {
             settings,
-            sample_period: 0.0,
-            startup_gain_rate: 0.0,
-            overrange_enabled: false,
-            overrange_threshold: 0.0,
-            acceleration_rejection: 0.0,
-            magnetic_rejection: 0.0,
-            rejection_timeout: 0,
+            config,
             quaternion: UnitQuaternion::identity(),
             accelerometer: Vector3::zeros(),
             startup: true,
             startup_gain: INITIAL_STARTUP_GAIN,
             overrange_recovery: false,
-            half_accelerometer_residual: Vector3::zeros(),
-            acceleration_recovery_trigger: 0,
-            acceleration_recovery_threshold: 0,
-            accelerometer_ignored: false,
-            half_magnetometer_residual: Vector3::zeros(),
-            magnetic_recovery_trigger: 0,
-            magnetic_recovery_threshold: 0,
-            magnetometer_ignored: false,
-        };
-
-        ahrs.set_settings(settings);
-        ahrs.restart();
-        ahrs
+            acceleration: Rejection::new(config.rejection_timeout),
+            magnetic: Rejection::new(config.rejection_timeout),
+        }
     }
 
     /// Restart the AHRS algorithm
@@ -179,15 +279,8 @@ impl Ahrs {
 
         self.overrange_recovery = false;
 
-        self.half_accelerometer_residual = Vector3::zeros();
-        self.acceleration_recovery_trigger = 0;
-        self.acceleration_recovery_threshold = self.rejection_timeout;
-        self.accelerometer_ignored = false;
-
-        self.half_magnetometer_residual = Vector3::zeros();
-        self.magnetic_recovery_trigger = 0;
-        self.magnetic_recovery_threshold = self.rejection_timeout;
-        self.magnetometer_ignored = false;
+        self.acceleration = Rejection::new(self.config.rejection_timeout);
+        self.magnetic = Rejection::new(self.config.rejection_timeout);
     }
 
     /// Restart the AHRS algorithm
@@ -244,26 +337,10 @@ impl Ahrs {
     /// ```
     pub fn set_settings(&mut self, settings: AhrsSettings) {
         self.settings = settings;
-        self.sample_period = 1.0 / settings.sample_rate;
+        self.config = Config::new(&settings);
 
-        self.startup_gain_rate =
-            ((INITIAL_STARTUP_GAIN - settings.gain) / STARTUP_PERIOD) * self.sample_period;
-
-        self.overrange_enabled = settings.gyroscope_range > 0.0;
-        self.overrange_threshold = OVERRANGE_FACTOR * settings.gyroscope_range;
-
-        self.acceleration_rejection = rejection_threshold(settings.acceleration_rejection);
-        self.magnetic_rejection = rejection_threshold(settings.magnetic_rejection);
-        self.rejection_timeout = (settings.sample_rate * settings.rejection_timeout) as i32;
-
-        self.acceleration_recovery_threshold = self.rejection_timeout;
-        self.magnetic_recovery_threshold = self.rejection_timeout;
-
-        // Disable acceleration and magnetic rejection if gain or timeout is zero
-        if settings.gain == 0.0 || settings.rejection_timeout == 0.0 {
-            self.acceleration_rejection = f32::MAX;
-            self.magnetic_rejection = f32::MAX;
-        }
+        self.acceleration.recovery_threshold = self.config.rejection_timeout;
+        self.magnetic.recovery_threshold = self.config.rejection_timeout;
     }
 
     /// Get current algorithm settings
@@ -306,7 +383,7 @@ impl Ahrs {
     /// ahrs.update_no_magnetometer(Vector3::zeros(), Vector3::new(0.0, 0.0, 1.0));
     /// ```
     pub fn set_sample_period(&mut self, sample_period: f32) {
-        self.sample_period = sample_period;
+        self.config.sample_period = sample_period;
     }
 
     /// Update AHRS with gyroscope, accelerometer, and magnetometer data
@@ -365,7 +442,7 @@ impl Ahrs {
 
         let half_angular_rate = half_gyroscope + half_feedback * gain;
 
-        self.integrate_quaternion(half_angular_rate * self.sample_period);
+        self.integrate_quaternion(half_angular_rate * self.config.sample_period);
     }
 
     /// Update AHRS without magnetometer (gyroscope and accelerometer only)
@@ -628,28 +705,14 @@ impl Ahrs {
     /// println!("Magnetometer ignored: {}", states.magnetometer_ignored);
     /// ```
     pub fn internal_states(&self) -> AhrsInternalStates {
-        // Clamp to valid asin range to match FusionArcSin
-        let error = |half_residual: Vector3<f32>| {
-            (2.0 * half_residual.magnitude())
-                .clamp(-1.0, 1.0)
-                .asin()
-                .to_degrees()
-        };
-        let trigger = |trigger: i32| {
-            if self.rejection_timeout == 0 {
-                0.0
-            } else {
-                trigger as f32 / self.rejection_timeout as f32
-            }
-        };
-
+        let timeout = self.config.rejection_timeout;
         AhrsInternalStates {
-            acceleration_error: error(self.half_accelerometer_residual),
-            accelerometer_ignored: self.accelerometer_ignored,
-            acceleration_recovery_trigger: trigger(self.acceleration_recovery_trigger),
-            magnetic_error: error(self.half_magnetometer_residual),
-            magnetometer_ignored: self.magnetometer_ignored,
-            magnetic_recovery_trigger: trigger(self.magnetic_recovery_trigger),
+            acceleration_error: self.acceleration.error(),
+            accelerometer_ignored: self.acceleration.ignored,
+            acceleration_recovery_trigger: self.acceleration.recovery_trigger(timeout),
+            magnetic_error: self.magnetic.error(),
+            magnetometer_ignored: self.magnetic.ignored,
+            magnetic_recovery_trigger: self.magnetic.recovery_trigger(timeout),
         }
     }
 
@@ -679,9 +742,8 @@ impl Ahrs {
         AhrsFlags {
             startup: self.startup,
             overrange_recovery: self.overrange_recovery,
-            acceleration_recovery: self.acceleration_recovery_trigger
-                > self.acceleration_recovery_threshold,
-            magnetic_recovery: self.magnetic_recovery_trigger > self.magnetic_recovery_threshold,
+            acceleration_recovery: self.acceleration.recovery(),
+            magnetic_recovery: self.magnetic.recovery(),
         }
     }
 
@@ -722,13 +784,13 @@ impl Ahrs {
 
     /// Trigger a soft restart if gyroscope overrange is detected
     fn overrange(&mut self, gyroscope: Vector3<f32>) {
-        if !self.overrange_enabled {
+        if !self.config.overrange_enabled {
             return;
         }
 
-        if gyroscope.x.abs() <= self.overrange_threshold
-            && gyroscope.y.abs() <= self.overrange_threshold
-            && gyroscope.z.abs() <= self.overrange_threshold
+        if gyroscope.x.abs() <= self.config.overrange_threshold
+            && gyroscope.y.abs() <= self.config.overrange_threshold
+            && gyroscope.z.abs() <= self.config.overrange_threshold
         {
             return;
         }
@@ -751,19 +813,19 @@ impl Ahrs {
     /// Ramp down the gain during startup and return the gain to apply
     fn startup_gain(&mut self) -> f32 {
         if !self.startup {
-            return self.settings.gain;
+            return self.config.gain;
         }
 
-        self.startup_gain -= self.startup_gain_rate;
+        self.startup_gain -= self.config.startup_gain_rate;
 
-        if self.startup_gain > self.settings.gain {
+        if self.startup_gain > self.config.gain {
             return self.startup_gain;
         }
 
         self.startup = false;
         self.overrange_recovery = false;
 
-        self.settings.gain
+        self.config.gain
     }
 
     /// Return inclination feedback scaled by 0.5
@@ -772,41 +834,18 @@ impl Ahrs {
         half_gravity: Vector3<f32>,
         accelerometer: Vector3<f32>,
     ) -> Vector3<f32> {
-        let mut half_inclination_feedback = Vector3::zeros();
-        self.accelerometer_ignored = true;
-        if accelerometer != Vector3::zeros() {
-            // Calculate accelerometer residual scaled by 0.5
-            self.half_accelerometer_residual =
-                residual(accelerometer.safe_normalize(), half_gravity);
-
-            // Don't ignore accelerometer if acceleration error below threshold
-            if self.startup
-                || self.half_accelerometer_residual.magnitude_squared()
-                    <= self.acceleration_rejection
-            {
-                self.accelerometer_ignored = false;
-                self.acceleration_recovery_trigger -= RECOVERY_DECREMENT;
-            } else {
-                self.acceleration_recovery_trigger += 1;
-            }
-
-            // Don't ignore accelerometer during acceleration recovery
-            if self.acceleration_recovery_trigger > self.acceleration_recovery_threshold {
-                self.acceleration_recovery_threshold = 0;
-                self.accelerometer_ignored = false;
-            } else {
-                self.acceleration_recovery_threshold = self.rejection_timeout;
-            }
-            self.acceleration_recovery_trigger = self
-                .acceleration_recovery_trigger
-                .clamp(0, self.rejection_timeout);
-
-            // Apply accelerometer feedback
-            if !self.accelerometer_ignored {
-                half_inclination_feedback = self.half_accelerometer_residual;
-            }
+        if accelerometer == Vector3::zeros() {
+            self.acceleration.skip();
+            return Vector3::zeros();
         }
-        half_inclination_feedback
+
+        let half_residual = residual(accelerometer.safe_normalize(), half_gravity);
+        self.acceleration.update(
+            half_residual,
+            self.startup,
+            self.config.acceleration_rejection,
+            self.config.rejection_timeout,
+        )
     }
 
     /// Return heading feedback scaled by 0.5
@@ -815,45 +854,24 @@ impl Ahrs {
         half_gravity: Vector3<f32>,
         magnetometer: Vector3<f32>,
     ) -> Vector3<f32> {
-        let mut half_heading_feedback = Vector3::zeros();
-        self.magnetometer_ignored = true;
-        if magnetometer != Vector3::zeros() {
-            // Calculate direction of magnetic field indicated by algorithm
-            let half_west = self.calculate_half_west();
-
-            // Calculate magnetometer residual scaled by 0.5
-            self.half_magnetometer_residual = residual(
-                half_gravity.cross(&magnetometer).safe_normalize(),
-                half_west,
-            );
-
-            // Don't ignore magnetometer if magnetic error below threshold
-            if self.startup
-                || self.half_magnetometer_residual.magnitude_squared() <= self.magnetic_rejection
-            {
-                self.magnetometer_ignored = false;
-                self.magnetic_recovery_trigger -= RECOVERY_DECREMENT;
-            } else {
-                self.magnetic_recovery_trigger += 1;
-            }
-
-            // Don't ignore magnetometer during magnetic recovery
-            if self.magnetic_recovery_trigger > self.magnetic_recovery_threshold {
-                self.magnetic_recovery_threshold = 0;
-                self.magnetometer_ignored = false;
-            } else {
-                self.magnetic_recovery_threshold = self.rejection_timeout;
-            }
-            self.magnetic_recovery_trigger = self
-                .magnetic_recovery_trigger
-                .clamp(0, self.rejection_timeout);
-
-            // Apply magnetometer feedback
-            if !self.magnetometer_ignored {
-                half_heading_feedback = self.half_magnetometer_residual;
-            }
+        if magnetometer == Vector3::zeros() {
+            self.magnetic.skip();
+            return Vector3::zeros();
         }
-        half_heading_feedback
+
+        // Direction of magnetic field indicated by algorithm
+        let half_west = self.calculate_half_west();
+
+        let half_residual = residual(
+            half_gravity.cross(&magnetometer).safe_normalize(),
+            half_west,
+        );
+        self.magnetic.update(
+            half_residual,
+            self.startup,
+            self.config.magnetic_rejection,
+            self.config.rejection_timeout,
+        )
     }
 
     /// Calculate half gravity vector in sensor frame based on current quaternion
@@ -912,8 +930,10 @@ impl Ahrs {
     /// Integrate the quaternion by the half angular displacement
     fn integrate_quaternion(&mut self, half_angular_displacement: Vector3<f32>) {
         let q = self.quaternion.as_ref();
-        let new_quaternion = q + q * Quaternion::from_parts(0.0, half_angular_displacement);
-        self.quaternion = UnitQuaternion::from_quaternion(new_quaternion);
+        let quaternion = q + q * Quaternion::from_parts(0.0, half_angular_displacement);
+
+        // Normalise by reciprocal multiplication, as in C
+        self.quaternion = UnitQuaternion::new_unchecked(quaternion * (1.0 / quaternion.norm()));
     }
 }
 
@@ -924,6 +944,17 @@ fn rejection_threshold(degrees: f32) -> f32 {
     } else {
         (0.5 * (degrees * DEG_TO_RAD).sin()).powi(2)
     }
+}
+
+/// Clamp matching C's `Clamp`: never panics when `min > max`
+fn clamp(value: i32, min: i32, max: i32) -> i32 {
+    if value < min {
+        return min;
+    }
+    if value > max {
+        return max;
+    }
+    value
 }
 
 /// Residual between the sensor and reference vectors
@@ -1102,7 +1133,7 @@ mod tests {
             sample_rate: 50.0,
             ..Default::default()
         });
-        assert_eq!(ahrs.sample_period, 0.02);
+        assert_eq!(ahrs.config.sample_period, 0.02);
     }
 
     #[test]
@@ -1153,5 +1184,33 @@ mod tests {
             assert!(!ahrs.internal_states().accelerometer_ignored);
         }
         assert_eq!(ahrs.internal_states().acceleration_recovery_trigger, 0.0);
+    }
+
+    #[test]
+    fn test_negative_rejection_timeout_does_not_panic() {
+        let settings = AhrsSettings {
+            acceleration_rejection: 10.0,
+            magnetic_rejection: 10.0,
+            rejection_timeout: -1.0,
+            ..Default::default()
+        };
+        let mut ahrs = Ahrs::with_settings(settings);
+        for _ in 0..10 {
+            ahrs.update(
+                Vector3::zeros(),
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(0.0, 1.0, 0.0),
+            );
+        }
+    }
+
+    #[test]
+    fn test_clamp_matches_c() {
+        assert_eq!(clamp(-5, 0, 10), 0);
+        assert_eq!(clamp(15, 0, 10), 10);
+        assert_eq!(clamp(5, 0, 10), 5);
+        // min > max: C checks min first, then max
+        assert_eq!(clamp(-5, 0, -100), 0);
+        assert_eq!(clamp(5, 0, -100), -100);
     }
 }
