@@ -30,7 +30,7 @@ src/
   types.rs        – AhrsSettings, AhrsInternalStates, AhrsFlags, Convention, OffsetSettings
   offset.rs       – gyroscope offset correction
   calibration.rs  – calibrate_inertial(), calibrate_magnetic()
-  math.rs         – math utilities, Vector3Ext / QuaternionExt traits
+  math/           – Vector, Quaternion, Matrix, Euler (mirror FusionMath.h); Vector3Ext / QuaternionExt nalgebra traits (to be removed)
   axes.rs         – sensor axes alignment (axes_swap, AxesAlignment)
   compass.rs      – tilt-compensated magnetic heading (calculate_heading)
 fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe FFI wrappers (publish = false)
@@ -68,6 +68,7 @@ Algorithm parity with the upstream C library is enforced via integration tests:
 - `tests/c_parity_tests.rs` — pure-Rust assertions that mirror C behavior on synthetic inputs
 - `tests/c_comparison_test.rs` — `c_*` tests run the C library (via `fusion-c-sys`) and Rust side by side on `testdata/sensor_data.csv`, comparing every output on every sample; also covers offset, compass, remap, calibration models, and to-string. Requires the `fusion-c/` submodule and a C compiler
 - When syncing upstream, bump the submodule, run `cargo test --test c_comparison_test`, and add shim/wrapper coverage in `fusion-c-sys` for any new C API
+- `tests/c_math_test.rs` — math types vs `FusionMath.h` on random inputs; arithmetic must match bit for bit
 - `tests/verification_tests.rs` — broader algorithm-behavior checks
 
 When Rust output diverges from C, the C side is authoritative — port the C fix into the Rust implementation rather than adjusting the Rust output. If a deliberate divergence is unavoidable, document it inline and in the PR description.

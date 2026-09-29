@@ -29,6 +29,7 @@ exclude = [
 ]
 
 [dependencies]
+libm = "0.2"
 nalgebra = { version = "0.35", default-features = false, features = ["libm"] }
 
 [dev-dependencies]

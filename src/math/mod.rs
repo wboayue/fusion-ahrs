@@ -1,4 +1,17 @@
-//! Mathematical utilities and nalgebra extensions for the Fusion AHRS library
+//! Math types and utilities for the Fusion AHRS library
+//!
+//! [`Vector`], [`Quaternion`], [`Matrix`], and [`Euler`] mirror the C
+//! library's `FusionMath.h` types and operations.
+
+mod euler;
+mod matrix;
+mod quaternion;
+mod vector;
+
+pub use euler::Euler;
+pub use matrix::Matrix;
+pub use quaternion::Quaternion;
+pub use vector::Vector;
 
 #[allow(unused_imports)]
 use nalgebra::ComplexField; // Required for no_std float methods
@@ -174,6 +187,17 @@ impl QuaternionExt for UnitQuaternion<f32> {
         let euler_rad = Vector3::new(roll, pitch, yaw).deg_to_rad();
         Self::from_euler(euler_rad.x, euler_rad.y, euler_rad.z)
     }
+}
+
+/// Arc sine that clamps its input to [-1, 1], as C's `FusionArcSin`
+pub(crate) fn arc_sin(value: f32) -> f32 {
+    if value <= -1.0 {
+        return core::f32::consts::PI / -2.0;
+    }
+    if value >= 1.0 {
+        return core::f32::consts::PI / 2.0;
+    }
+    libm::asinf(value)
 }
 
 #[cfg(test)]

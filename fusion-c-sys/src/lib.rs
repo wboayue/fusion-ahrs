@@ -280,3 +280,156 @@ pub fn remap_alignment_to_string(alignment: u32) -> &'static str {
         .to_str()
         .unwrap()
 }
+
+/// `FusionMath.h` operations. Vectors are `[x, y, z]`, quaternions
+/// `[w, x, y, z]`, matrices row-major `[xx, xy, xz, yx, ..., zz]`.
+pub mod math {
+    unsafe extern "C" {
+        fn ShimDegreesToRadians(degrees: f32) -> f32;
+        fn ShimRadiansToDegrees(radians: f32) -> f32;
+        fn ShimArcSin(value: f32) -> f32;
+
+        fn ShimVectorIsZero(v: *const f32) -> bool;
+        fn ShimVectorAdd(a: *const f32, b: *const f32, out: *mut f32);
+        fn ShimVectorSubtract(a: *const f32, b: *const f32, out: *mut f32);
+        fn ShimVectorScale(v: *const f32, s: f32, out: *mut f32);
+        fn ShimVectorSum(v: *const f32) -> f32;
+        fn ShimVectorHadamard(a: *const f32, b: *const f32, out: *mut f32);
+        fn ShimVectorCross(a: *const f32, b: *const f32, out: *mut f32);
+        fn ShimVectorDot(a: *const f32, b: *const f32) -> f32;
+        fn ShimVectorNormSquared(v: *const f32) -> f32;
+        fn ShimVectorNorm(v: *const f32) -> f32;
+        fn ShimVectorNormalise(v: *const f32, out: *mut f32);
+
+        fn ShimQuaternionAdd(a: *const f32, b: *const f32, out: *mut f32);
+        fn ShimQuaternionScale(q: *const f32, s: f32, out: *mut f32);
+        fn ShimQuaternionSum(q: *const f32) -> f32;
+        fn ShimQuaternionHadamard(a: *const f32, b: *const f32, out: *mut f32);
+        fn ShimQuaternionProduct(a: *const f32, b: *const f32, out: *mut f32);
+        fn ShimQuaternionVectorProduct(q: *const f32, v: *const f32, out: *mut f32);
+        fn ShimQuaternionNormSquared(q: *const f32) -> f32;
+        fn ShimQuaternionNorm(q: *const f32) -> f32;
+        fn ShimQuaternionNormalise(q: *const f32, out: *mut f32);
+        fn ShimQuaternionToMatrix(q: *const f32, out: *mut f32);
+        fn ShimQuaternionToEuler(q: *const f32, out: *mut f32);
+
+        fn ShimMatrixScale(m: *const f32, s: f32, out: *mut f32);
+        fn ShimMatrixMultiply(m: *const f32, v: *const f32, out: *mut f32);
+    }
+
+    /// Calls a shim that writes an `N`-element result.
+    fn out<const N: usize>(f: impl FnOnce(*mut f32)) -> [f32; N] {
+        let mut out = [0.0; N];
+        f(out.as_mut_ptr());
+        out
+    }
+
+    pub fn degrees_to_radians(degrees: f32) -> f32 {
+        unsafe { ShimDegreesToRadians(degrees) }
+    }
+
+    pub fn radians_to_degrees(radians: f32) -> f32 {
+        unsafe { ShimRadiansToDegrees(radians) }
+    }
+
+    pub fn arc_sin(value: f32) -> f32 {
+        unsafe { ShimArcSin(value) }
+    }
+
+    pub fn vector_is_zero(v: [f32; 3]) -> bool {
+        unsafe { ShimVectorIsZero(v.as_ptr()) }
+    }
+
+    pub fn vector_add(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+        out(|o| unsafe { ShimVectorAdd(a.as_ptr(), b.as_ptr(), o) })
+    }
+
+    pub fn vector_subtract(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+        out(|o| unsafe { ShimVectorSubtract(a.as_ptr(), b.as_ptr(), o) })
+    }
+
+    pub fn vector_scale(v: [f32; 3], s: f32) -> [f32; 3] {
+        out(|o| unsafe { ShimVectorScale(v.as_ptr(), s, o) })
+    }
+
+    pub fn vector_sum(v: [f32; 3]) -> f32 {
+        unsafe { ShimVectorSum(v.as_ptr()) }
+    }
+
+    pub fn vector_hadamard(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+        out(|o| unsafe { ShimVectorHadamard(a.as_ptr(), b.as_ptr(), o) })
+    }
+
+    pub fn vector_cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+        out(|o| unsafe { ShimVectorCross(a.as_ptr(), b.as_ptr(), o) })
+    }
+
+    pub fn vector_dot(a: [f32; 3], b: [f32; 3]) -> f32 {
+        unsafe { ShimVectorDot(a.as_ptr(), b.as_ptr()) }
+    }
+
+    pub fn vector_norm_squared(v: [f32; 3]) -> f32 {
+        unsafe { ShimVectorNormSquared(v.as_ptr()) }
+    }
+
+    pub fn vector_norm(v: [f32; 3]) -> f32 {
+        unsafe { ShimVectorNorm(v.as_ptr()) }
+    }
+
+    pub fn vector_normalise(v: [f32; 3]) -> [f32; 3] {
+        out(|o| unsafe { ShimVectorNormalise(v.as_ptr(), o) })
+    }
+
+    pub fn quaternion_add(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
+        out(|o| unsafe { ShimQuaternionAdd(a.as_ptr(), b.as_ptr(), o) })
+    }
+
+    pub fn quaternion_scale(q: [f32; 4], s: f32) -> [f32; 4] {
+        out(|o| unsafe { ShimQuaternionScale(q.as_ptr(), s, o) })
+    }
+
+    pub fn quaternion_sum(q: [f32; 4]) -> f32 {
+        unsafe { ShimQuaternionSum(q.as_ptr()) }
+    }
+
+    pub fn quaternion_hadamard(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
+        out(|o| unsafe { ShimQuaternionHadamard(a.as_ptr(), b.as_ptr(), o) })
+    }
+
+    pub fn quaternion_product(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
+        out(|o| unsafe { ShimQuaternionProduct(a.as_ptr(), b.as_ptr(), o) })
+    }
+
+    pub fn quaternion_vector_product(q: [f32; 4], v: [f32; 3]) -> [f32; 4] {
+        out(|o| unsafe { ShimQuaternionVectorProduct(q.as_ptr(), v.as_ptr(), o) })
+    }
+
+    pub fn quaternion_norm_squared(q: [f32; 4]) -> f32 {
+        unsafe { ShimQuaternionNormSquared(q.as_ptr()) }
+    }
+
+    pub fn quaternion_norm(q: [f32; 4]) -> f32 {
+        unsafe { ShimQuaternionNorm(q.as_ptr()) }
+    }
+
+    pub fn quaternion_normalise(q: [f32; 4]) -> [f32; 4] {
+        out(|o| unsafe { ShimQuaternionNormalise(q.as_ptr(), o) })
+    }
+
+    pub fn quaternion_to_matrix(q: [f32; 4]) -> [f32; 9] {
+        out(|o| unsafe { ShimQuaternionToMatrix(q.as_ptr(), o) })
+    }
+
+    /// Roll, pitch, yaw in degrees.
+    pub fn quaternion_to_euler(q: [f32; 4]) -> [f32; 3] {
+        out(|o| unsafe { ShimQuaternionToEuler(q.as_ptr(), o) })
+    }
+
+    pub fn matrix_scale(m: [f32; 9], s: f32) -> [f32; 9] {
+        out(|o| unsafe { ShimMatrixScale(m.as_ptr(), s, o) })
+    }
+
+    pub fn matrix_multiply(m: [f32; 9], v: [f32; 3]) -> [f32; 3] {
+        out(|o| unsafe { ShimMatrixMultiply(m.as_ptr(), v.as_ptr(), o) })
+    }
+}

@@ -135,3 +135,69 @@ void ShimModelMagnetic(const float uncalibrated[3], const float softIronMatrix[9
     }
     Copy(FusionModelMagnetic(Vector(uncalibrated), m, Vector(hardIronOffset)), out);
 }
+
+//------------------------------------------------------------------------------
+// FusionMath.h wrappers
+
+static FusionQuaternion Quaternion(const float q[4]) {
+    const FusionQuaternion result = {.element = {.w = q[0], .x = q[1], .y = q[2], .z = q[3]}};
+    return result;
+}
+
+static void CopyQuaternion(const FusionQuaternion q, float out[4]) {
+    out[0] = q.element.w;
+    out[1] = q.element.x;
+    out[2] = q.element.y;
+    out[3] = q.element.z;
+}
+
+static FusionMatrix Matrix(const float m[9]) {
+    FusionMatrix result; // row-major
+    for (int i = 0; i < 9; i++) {
+        result.array[i] = m[i];
+    }
+    return result;
+}
+
+static void CopyMatrix(const FusionMatrix m, float out[9]) {
+    for (int i = 0; i < 9; i++) {
+        out[i] = m.array[i];
+    }
+}
+
+float ShimDegreesToRadians(const float degrees) { return FusionDegreesToRadians(degrees); }
+float ShimRadiansToDegrees(const float radians) { return FusionRadiansToDegrees(radians); }
+float ShimArcSin(const float value) { return FusionArcSin(value); }
+
+bool ShimVectorIsZero(const float v[3]) { return FusionVectorIsZero(Vector(v)); }
+void ShimVectorAdd(const float a[3], const float b[3], float out[3]) { Copy(FusionVectorAdd(Vector(a), Vector(b)), out); }
+void ShimVectorSubtract(const float a[3], const float b[3], float out[3]) { Copy(FusionVectorSubtract(Vector(a), Vector(b)), out); }
+void ShimVectorScale(const float v[3], const float s, float out[3]) { Copy(FusionVectorScale(Vector(v), s), out); }
+float ShimVectorSum(const float v[3]) { return FusionVectorSum(Vector(v)); }
+void ShimVectorHadamard(const float a[3], const float b[3], float out[3]) { Copy(FusionVectorHadamard(Vector(a), Vector(b)), out); }
+void ShimVectorCross(const float a[3], const float b[3], float out[3]) { Copy(FusionVectorCross(Vector(a), Vector(b)), out); }
+float ShimVectorDot(const float a[3], const float b[3]) { return FusionVectorDot(Vector(a), Vector(b)); }
+float ShimVectorNormSquared(const float v[3]) { return FusionVectorNormSquared(Vector(v)); }
+float ShimVectorNorm(const float v[3]) { return FusionVectorNorm(Vector(v)); }
+void ShimVectorNormalise(const float v[3], float out[3]) { Copy(FusionVectorNormalise(Vector(v)), out); }
+
+void ShimQuaternionAdd(const float a[4], const float b[4], float out[4]) { CopyQuaternion(FusionQuaternionAdd(Quaternion(a), Quaternion(b)), out); }
+void ShimQuaternionScale(const float q[4], const float s, float out[4]) { CopyQuaternion(FusionQuaternionScale(Quaternion(q), s), out); }
+float ShimQuaternionSum(const float q[4]) { return FusionQuaternionSum(Quaternion(q)); }
+void ShimQuaternionHadamard(const float a[4], const float b[4], float out[4]) { CopyQuaternion(FusionQuaternionHadamard(Quaternion(a), Quaternion(b)), out); }
+void ShimQuaternionProduct(const float a[4], const float b[4], float out[4]) { CopyQuaternion(FusionQuaternionProduct(Quaternion(a), Quaternion(b)), out); }
+void ShimQuaternionVectorProduct(const float q[4], const float v[3], float out[4]) { CopyQuaternion(FusionQuaternionVectorProduct(Quaternion(q), Vector(v)), out); }
+float ShimQuaternionNormSquared(const float q[4]) { return FusionQuaternionNormSquared(Quaternion(q)); }
+float ShimQuaternionNorm(const float q[4]) { return FusionQuaternionNorm(Quaternion(q)); }
+void ShimQuaternionNormalise(const float q[4], float out[4]) { CopyQuaternion(FusionQuaternionNormalise(Quaternion(q)), out); }
+void ShimQuaternionToMatrix(const float q[4], float out[9]) { CopyMatrix(FusionQuaternionToMatrix(Quaternion(q)), out); }
+
+void ShimQuaternionToEuler(const float q[4], float out[3]) {
+    const FusionEuler euler = FusionQuaternionToEuler(Quaternion(q));
+    out[0] = euler.angle.roll;
+    out[1] = euler.angle.pitch;
+    out[2] = euler.angle.yaw;
+}
+
+void ShimMatrixScale(const float m[9], const float s, float out[9]) { CopyMatrix(FusionMatrixScale(Matrix(m), s), out); }
+void ShimMatrixMultiply(const float m[9], const float v[3], float out[3]) { Copy(FusionMatrixMultiply(Matrix(m), Vector(v)), out); }
