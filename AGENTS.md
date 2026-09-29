@@ -76,7 +76,7 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 ## C Parity Workflow
 Algorithm parity with the upstream C library is enforced via integration tests:
 - `tests/c_parity_tests.rs` — pure-Rust assertions that mirror C behavior on synthetic inputs
-- `tests/c_comparison_test.rs` — `c_*` tests run the C library (via `fusion-c-sys`) and Rust side by side on `testdata/sensor_data.csv`, comparing every output on every sample; also covers offset, compass, remap, calibration models, and to-string. Requires the `fusion-c/` submodule and a C compiler
+- `tests/c_comparison_test.rs` — `c_*` tests run the C library (via `fusion-c-sys`) and Rust side by side on `testdata/sensor_data.csv`, comparing every output on every sample; also covers bias, compass, remap, calibration models, and to-string. Requires the `fusion-c/` submodule and a C compiler
 - When syncing upstream, bump the submodule, run `cargo test --test c_comparison_test`, and add shim/wrapper coverage in `fusion-c-sys` for any new C API
 - `tests/c_math_test.rs` — math types vs `FusionMath.h` on random inputs; arithmetic must match bit for bit
 - `tests/verification_tests.rs` — broader algorithm-behavior checks

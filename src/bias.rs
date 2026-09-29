@@ -61,15 +61,14 @@ impl Bias {
     /// assert_eq!(bias.settings().sample_rate, 400.0);
     /// ```
     pub fn with_settings(settings: BiasSettings) -> Self {
-        let mut bias = Self {
+        let (filter_coefficient, timeout) = derived(&settings);
+        Self {
             settings,
-            filter_coefficient: 0.0,
-            timeout: 0,
+            filter_coefficient,
+            timeout,
             timer: 0,
             offset: Vector::ZERO,
-        };
-        bias.set_settings(settings);
-        bias
+        }
     }
 
     /// Updates the settings, keeping the current offset estimate.
@@ -86,10 +85,7 @@ impl Bias {
     /// ```
     pub fn set_settings(&mut self, settings: BiasSettings) {
         self.settings = settings;
-        // C: 2π × fc × (1 / fs)
-        self.filter_coefficient =
-            2.0 * core::f32::consts::PI * settings.cutoff_frequency * (1.0 / settings.sample_rate);
-        self.timeout = (settings.stationary_period * settings.sample_rate) as u32;
+        (self.filter_coefficient, self.timeout) = derived(&settings);
     }
 
     /// Returns the current settings.
@@ -188,6 +184,18 @@ impl Bias {
     pub fn is_active(&self) -> bool {
         self.timer >= self.timeout
     }
+}
+
+/// Filter coefficient and stationary period in samples, as C's
+/// `FusionBiasSetSettings` computes them
+fn derived(settings: &BiasSettings) -> (f32, u32) {
+    debug_assert!(settings.sample_rate > 0.0, "sample_rate must be positive");
+
+    // C: 2π × fc × (1 / fs)
+    let filter_coefficient =
+        2.0 * core::f32::consts::PI * settings.cutoff_frequency * (1.0 / settings.sample_rate);
+    let timeout = (settings.stationary_period * settings.sample_rate) as u32;
+    (filter_coefficient, timeout)
 }
 
 impl Default for Bias {
@@ -337,5 +345,12 @@ mod tests {
         bias.update(Vector::new(threshold - 0.1, 0.0, 0.0));
         bias.update(Vector::new(threshold, 0.0, 0.0));
         assert_eq!(bias.timer, 2);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "sample_rate must be positive")]
+    fn test_zero_sample_rate_panics_in_debug() {
+        with_sample_rate(0.0);
     }
 }

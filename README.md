@@ -333,7 +333,7 @@ let gravity: Vector3<f32> = ahrs.gravity().into();
 The library includes two runnable examples:
 
 - `simple.rs` — basic 6-DOF AHRS usage with sample data and plots
-- `advanced.rs` — 9-DOF sensor fusion with offset correction, custom settings, and internal-state diagnostics
+- `advanced.rs` — 9-DOF sensor fusion with bias correction, custom settings, and internal-state diagnostics
 
 ```bash
 cargo run --example simple
