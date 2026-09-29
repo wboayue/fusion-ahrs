@@ -301,7 +301,7 @@ Enable the feature matching your `nalgebra` version to convert between the crate
 
 ```toml
 [dependencies]
-fusion-ahrs = { version = "0.9", features = ["nalgebra-0_35"] }
+fusion-ahrs = { version = "1.0", features = ["nalgebra-0_35"] }
 nalgebra = "0.35"
 ```
 
