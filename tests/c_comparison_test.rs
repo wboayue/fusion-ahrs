@@ -9,8 +9,8 @@
 //! contraction; remaining differences are float rounding.
 
 use fusion_ahrs::{
-    Ahrs, AhrsSettings, AxesAlignment, Convention, Euler, Matrix, Offset, OffsetSettings,
-    Quaternion, Vector, axes_swap, calculate_heading, calibrate_inertial, calibrate_magnetic,
+    Ahrs, AhrsSettings, Bias, BiasSettings, Convention, Euler, Matrix, Quaternion, RemapAlignment,
+    Vector, calculate_heading, calibrate_inertial, calibrate_magnetic, remap,
 };
 use fusion_c_sys as c;
 use serde::Deserialize;
@@ -395,27 +395,25 @@ fn c_ahrs_state_changes() {
     });
 }
 
+/// Bias ports C's arithmetic exactly, so outputs must be bit-identical
 #[test]
-fn c_offset_matches_bias() {
-    let settings = OffsetSettings::default();
-    let mut rust = Offset::new(settings, SAMPLE_RATE);
-    let mut c = c::Bias::new(&c::BiasSettings {
+fn c_bias_matches() {
+    let settings = BiasSettings {
         sample_rate: SAMPLE_RATE,
-        stationary_threshold: settings.threshold,
-        stationary_period: settings.timeout,
+        ..Default::default()
+    };
+    let mut rust = Bias::with_settings(settings);
+    let mut c = c::Bias::new(&c::BiasSettings {
+        sample_rate: settings.sample_rate,
+        stationary_threshold: settings.stationary_threshold,
+        stationary_period: settings.stationary_period,
     });
 
     for (i, d) in SENSOR_DATA.iter().enumerate() {
         let g = d.gyroscope();
-        let context = format!("offset sample {i}");
-        assert_vector(
-            &context,
-            "corrected",
-            rust.update(g),
-            c.update(arr(g)),
-            1e-6,
-        );
-        assert_vector(&context, "offset", rust.offset(), c.offset(), 1e-6);
+        let context = format!("bias sample {i}");
+        assert_vector(&context, "corrected", rust.update(g), c.update(arr(g)), 0.0);
+        assert_vector(&context, "offset", rust.offset(), c.offset(), 0.0);
     }
 }
 
@@ -444,13 +442,13 @@ fn c_remap_all_alignments() {
 
     for index in 0..24 {
         let name = c::remap_alignment_to_string(index);
-        let alignment = AxesAlignment::ALL
+        let alignment = RemapAlignment::ALL
             .into_iter()
             .find(|a| a.to_string() == name)
             .unwrap_or_else(|| panic!("no Rust alignment named {name}"));
 
         assert_eq!(
-            arr(axes_swap(sensor, alignment)),
+            arr(remap(sensor, alignment)),
             c::remap(arr(sensor), index),
             "{name}"
         );

@@ -228,7 +228,7 @@ impl Ahrs {
     /// };
     ///
     /// let mut ahrs = Ahrs::with_settings(settings);
-    /// assert_eq!(ahrs.get_settings().gain, 0.75);
+    /// assert_eq!(ahrs.settings().gain, 0.75);
     /// ```
     pub fn with_settings(settings: AhrsSettings) -> Self {
         let config = Config::new(&settings);
@@ -276,18 +276,6 @@ impl Ahrs {
         self.magnetic = Rejection::new(self.config.rejection_timeout);
     }
 
-    /// Restart the AHRS algorithm
-    #[deprecated(since = "0.8.0", note = "use `restart` instead")]
-    pub fn initialise(&mut self) {
-        self.restart();
-    }
-
-    /// Restart the AHRS algorithm
-    #[deprecated(since = "0.8.0", note = "use `restart` instead")]
-    pub fn reset(&mut self) {
-        self.restart();
-    }
-
     /// Skip startup
     ///
     /// Intended to be called before the first update when the initial
@@ -322,10 +310,10 @@ impl Ahrs {
     /// use fusion_ahrs::{Ahrs, AhrsSettings};
     ///
     /// let mut ahrs = Ahrs::new();
-    /// let mut settings = ahrs.get_settings();
+    /// let mut settings = ahrs.settings();
     /// settings.gain = 0.25; // Lower gain for more stable operation
     /// ahrs.set_settings(settings);
-    /// assert_eq!(ahrs.get_settings().gain, 0.25);
+    /// assert_eq!(ahrs.settings().gain, 0.25);
     /// ```
     pub fn set_settings(&mut self, settings: AhrsSettings) {
         self.settings = settings;
@@ -347,11 +335,11 @@ impl Ahrs {
     /// use fusion_ahrs::{Ahrs, Convention};
     ///
     /// let ahrs = Ahrs::new();
-    /// let settings = ahrs.get_settings();
+    /// let settings = ahrs.settings();
     /// assert_eq!(settings.convention, Convention::Nwu);
     /// assert_eq!(settings.gain, 0.5);
     /// ```
-    pub fn get_settings(&self) -> AhrsSettings {
+    pub fn settings(&self) -> AhrsSettings {
         self.settings
     }
 

@@ -7,7 +7,7 @@ const EPSILON: f32 = 1e-6;
 fn test_settings_processing() {
     // Test default settings (matches C library defaults)
     let ahrs = Ahrs::new();
-    let settings = ahrs.get_settings();
+    let settings = ahrs.settings();
     assert_eq!(settings.gain, 0.5);
     assert_eq!(settings.gyroscope_range, 0.0); // Disabled by default (C compat)
     assert_eq!(settings.sample_rate, 100.0); // C default
@@ -487,7 +487,7 @@ fn test_internal_states_error_uses_asin() {
 /// The offset is subtracted BEFORE sensitivity scaling.
 #[test]
 fn test_calibration_order_of_operations() {
-    use fusion_ahrs::calibration::calibrate_inertial;
+    use fusion_ahrs::calibrate_inertial;
 
     let uncalibrated = Vector::new(100.0, 200.0, 300.0);
     let misalignment = Matrix::IDENTITY;

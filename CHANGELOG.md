@@ -10,14 +10,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - `Vector`, `Quaternion`, `Matrix`, and `Euler` math types mirroring the C library's `FusionMath.h`. Arithmetic follows C's operation order and matches C built with `FUSION_USE_NORMAL_SQRT` bit for bit; the default C build uses a fast approximate inverse square root, and normalising a zero vector returns zero where C returns NaN.
 - Optional `nalgebra-0_35` feature with `From` conversions both ways between `Vector`/`Quaternion`/`Matrix` and nalgebra's `Vector3<f32>`/`Quaternion<f32>`/`UnitQuaternion<f32>`/`Matrix3<f32>`, so nalgebra values can be passed directly to the API. Features are versioned, so future nalgebra releases get new features alongside the old ones instead of breaking changes. The feature requires Rust 1.89 (nalgebra's MSRV).
+- `Bias::set_offset` to restore a saved gyroscope offset at startup (C `FusionBiasSetOffset`), plus `Bias::new()`, `with_settings`, `set_settings`, and `settings`, matching `Ahrs`.
 - Functions that take vectors accept `impl Into<Vector>`, so `[f32; 3]` arrays work directly; `set_quaternion` accepts `impl Into<Quaternion>`, and the calibration functions accept `impl Into<Matrix>`.
 
 ### Changed
-- **Breaking:** the public API uses the crate's own math types instead of `nalgebra`. `Ahrs::quaternion` returns `Quaternion`; `gravity`, `linear_acceleration`, `earth_acceleration`, `Offset::update`, `Offset::offset`, `axes_swap`, `calibrate_inertial`, and `calibrate_magnetic` return `Vector`. `nalgebra` is no longer a required dependency; see the `nalgebra-0_35` feature.
+- **Breaking:** the public API uses the crate's own math types instead of `nalgebra`. `Ahrs::quaternion` returns `Quaternion`; `gravity`, `linear_acceleration`, `earth_acceleration`, `Bias::update`, `Bias::offset`, `remap`, `calibrate_inertial`, and `calibrate_magnetic` return `Vector`. `nalgebra` is no longer a required dependency; see the `nalgebra-0_35` feature.
+- **Breaking:** API names made consistent, following Rust API guidelines and the C library's current names:
+
+  | 0.8 | 0.9 |
+  |---|---|
+  | `Ahrs::get_settings()` | `Ahrs::settings()` |
+  | `Offset`, `OffsetSettings` | `Bias`, `BiasSettings` (C `FusionBias`) |
+  | `Offset::new(settings, sample_rate)` | `Bias::with_settings(BiasSettings { sample_rate, .. })`, or `Bias::new()` for defaults |
+  | `OffsetSettings::timeout` / `threshold` | `BiasSettings::stationary_period` / `stationary_threshold` |
+  | `Offset::reset()` | `Bias::restart()` |
+  | `axes_swap`, `AxesAlignment` | `remap`, `RemapAlignment` (C `FusionRemap`) |
+  | `fusion_ahrs::calibration::…`, `compass::…`, `axes::…`, `offset::…` | crate root only, e.g. `fusion_ahrs::calibrate_inertial` |
+
+- `Bias` now computes its filter coefficient exactly as C does, so its output matches C bit for bit (previously within 1e-6).
 - The default build now works on the declared MSRV (Rust 1.85). Previously the required `nalgebra` 0.35 dependency needed Rust 1.89.
 - In 9-axis mode, the quaternion and acceleration outputs now match the C library (built with `FUSION_USE_NORMAL_SQRT`) bit for bit on the test data (previously within about 5e-7). Remaining differences come only from `libm` trigonometric functions (`asinf`, `atan2f`, `sinf`, `cosf`), used by the error angles, `set_heading`, and external heading updates.
 
 ### Removed
+- **Breaking:** deprecated `Ahrs::initialise` and `Ahrs::reset`; use `Ahrs::restart`.
+- **Breaking:** `Offset` accessors `timer`, `timeout` (samples, confusingly named like the seconds setting), `threshold`, `cutoff_frequency`, and `filter_coefficient`; use `Bias::settings()`.
 - **Breaking:** `Vector3Ext` and `QuaternionExt` traits. Their methods are on the new types: `Vector::norm`, `Vector::normalize` (was `safe_normalize`), `Vector::to_radians`/`to_degrees`, `Quaternion::to_euler` and `Quaternion::from_euler` (degrees, via `Euler`).
 
 ## [0.8.0] - 2026-09-28

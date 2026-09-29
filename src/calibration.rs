@@ -18,7 +18,7 @@ use crate::math::{Matrix, Vector};
 /// # Example
 /// ```
 /// use fusion_ahrs::{Matrix, Vector};
-/// use fusion_ahrs::calibration::calibrate_inertial;
+/// use fusion_ahrs::calibrate_inertial;
 ///
 /// let raw = Vector::new(1.0, 2.0, 3.0);
 /// let misalignment = Matrix::IDENTITY;
@@ -53,7 +53,7 @@ pub fn calibrate_inertial(
 /// # Example
 /// ```
 /// use fusion_ahrs::{Matrix, Vector};
-/// use fusion_ahrs::calibration::calibrate_magnetic;
+/// use fusion_ahrs::calibrate_magnetic;
 ///
 /// let raw = Vector::new(100.0, 200.0, 300.0);
 /// let soft_iron = Matrix::IDENTITY;
