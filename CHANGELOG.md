@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-29
+
+First stable release. The public API is now covered by the stability policy in the README "Versioning" section. The only breaking change since 0.9 is the `calculate_heading` argument order.
+
 ### Added
 - README "Versioning" section describing the stability policy from 1.0: how upstream C changes, MSRV bumps, and nalgebra features are versioned.
 - `no-std` and `no-std::no-alloc` crates.io categories.
@@ -168,7 +172,8 @@ Synced with upstream Fusion C `a8d7224` (2026-09-18) (#40). This release contain
 - `#![no_std]` compatibility with nalgebra integration.
 - Simple and advanced examples plus included test data.
 
-[Unreleased]: https://github.com/wboayue/fusion-ahrs/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/wboayue/fusion-ahrs/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.6.0...v0.7.0
