@@ -1,4 +1,5 @@
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! [![github]](https://github.com/wboayue/fusion-ahrs)&ensp;[![crates-io]](https://crates.io/crates/fusion-ahrs)&ensp;[![license]](https://opensource.org/licenses/MIT)
 //!
@@ -54,6 +55,7 @@ mod ahrs;
 pub mod axes;
 pub mod calibration;
 pub mod compass;
+pub mod interop;
 mod math;
 pub mod offset;
 mod types;

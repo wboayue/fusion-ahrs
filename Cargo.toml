@@ -30,6 +30,12 @@ exclude = [
 
 [dependencies]
 libm = "0.2"
+# Optional conversions, one feature per supported nalgebra version
+nalgebra_0_35 = { package = "nalgebra", version = "0.35", optional = true, default-features = false }
+
+[features]
+# Conversions between the crate math types and nalgebra 0.35 types
+nalgebra-0_35 = ["dep:nalgebra_0_35"]
 
 [dev-dependencies]
 csv = "1.4"
@@ -38,8 +44,14 @@ serde = { version = "1.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 rand = "0.10"
 rand_pcg = "0.10"
+# For nalgebra interop tests and doctests; same key as the optional dependency
+nalgebra_0_35 = { package = "nalgebra", version = "0.35" }
 # Test-only C reference bindings; path-only, stripped on publish
 fusion-c-sys = { path = "fusion-c-sys" }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [[bench]]
 name = "ahrs_benchmarks"

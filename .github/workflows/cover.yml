@@ -39,4 +39,4 @@ jobs:
         run: cargo install cargo-tarpaulin
         
       - name: coverage
-        run: cargo tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: cargo tarpaulin --all-features --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_REPO_TOKEN }}

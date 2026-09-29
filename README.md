@@ -22,6 +22,10 @@ Rust port of xioTechnologies' [Fusion AHRS C library](https://github.com/xioTech
 
 Requires Rust 1.85+. `no_std` is the default — no feature flags needed.
 
+| Feature | Adds | Requires |
+|---------|------|----------|
+| `nalgebra-0_35` | Conversions to and from `nalgebra` 0.35 types (see [nalgebra Interop](#nalgebra-interop)) | Rust 1.89+ (nalgebra's MSRV) |
+
 ```bash
 cargo add fusion-ahrs
 ```
@@ -284,6 +288,39 @@ let rotated = q.rotate(Vector::new(1.0, 0.0, 0.0)); // ≈ (0, 1, 0)
 let body = axes_swap([1.0, 2.0, 3.0], AxesAlignment::PyNxPz);
 assert_eq!(body, Vector::new(2.0, -1.0, 3.0));
 ```
+
+## nalgebra Interop
+
+Enable the feature matching your `nalgebra` version to convert between the crate types and `nalgebra` types. Each `nalgebra` version gets its own feature, so a new version can be added without breaking existing users.
+
+```toml
+[dependencies]
+fusion-ahrs = { version = "0.9", features = ["nalgebra-0_35"] }
+nalgebra = "0.35"
+```
+
+`nalgebra` values can be passed directly to any function taking `impl Into<Vector>`, `impl Into<Quaternion>`, or `impl Into<Matrix>`, and outputs convert back with `.into()`:
+
+```rust
+use fusion_ahrs::Ahrs;
+use nalgebra::{UnitQuaternion, Vector3};
+
+let mut ahrs = Ahrs::new();
+ahrs.update(
+    Vector3::new(0.0, 0.0, 0.0),
+    Vector3::new(0.0, 0.0, 1.0),
+    Vector3::new(1.0, 0.0, 0.0),
+);
+
+let orientation: UnitQuaternion<f32> = ahrs.quaternion().into();
+let gravity: Vector3<f32> = ahrs.gravity().into();
+```
+
+| fusion-ahrs | nalgebra |
+|-------------|----------|
+| `Vector` | `Vector3<f32>` |
+| `Quaternion` | `Quaternion<f32>`, `UnitQuaternion<f32>` (normalised on conversion) |
+| `Matrix` | `Matrix3<f32>` (row-major on both sides) |
 
 ## Examples
 

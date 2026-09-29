@@ -28,6 +28,8 @@ jobs:
         with:
           submodules: true
       - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: thumbv7em-none-eabihf
 
       # Cache cargo registry, index, and build directories
       - name: Cache cargo
@@ -37,8 +39,13 @@ jobs:
             ~/.cargo
           key: cargo-${{ hashFiles('**/Cargo.toml') }}
 
+      # Library-only builds: tests enable nalgebra's std via the dev-dependency,
+      # so only these catch feature code that needs nalgebra float features
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --all-features --verbose
+
+      - name: Build no_std
+        run: cargo build --lib --all-features --target thumbv7em-none-eabihf
 
       - name: setup
         run: |
@@ -48,12 +55,13 @@ jobs:
       - name: Install nextest
         uses: taiki-e/install-action@nextest
 
+      # Features only add conversions, so --all-features also covers the default build
       - name: Test
-        run: cargo nextest run --profile ci
+        run: cargo nextest run --profile ci --all-features
 
       # nextest does not run doctests
       - name: Doctests
-        run: cargo test --doc
+        run: cargo test --doc --all-features
 
       - name: Create Github test summary
         uses: test-summary/action@dist

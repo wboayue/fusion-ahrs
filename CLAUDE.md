@@ -6,7 +6,7 @@ Rust port of the Fusion AHRS C library, maintaining algorithm parity while follo
 
 ```bash
 git submodule update --init         # required for C parity tests (pulls fusion-c/)
-cargo test                          # run all tests (needs submodule + C compiler)
+cargo test --all-features           # run all tests (needs submodule + C compiler)
 cargo test --test c_comparison_test # AHRS vs C library, every sample
 cargo test --test c_math_test       # math types vs FusionMath.h, bit-exact
 cargo fmt --all                     # format (required before commit)
@@ -41,6 +41,8 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 
 ### Dependencies
 - `libm` — `no_std` float functions (sqrt, trig); private, not part of the public API
+- Optional `nalgebra_0_35` (package `nalgebra`) behind feature `nalgebra-0_35` — conversions only, in `src/interop.rs`. Needs Rust 1.89, above the crate MSRV
+- Adding a nalgebra version: new optional dependency `nalgebra_X_Y = { package = "nalgebra", version = "X.Y", optional = true, default-features = false }`, feature `nalgebra-X_Y = ["dep:nalgebra_X_Y"]`, one `nalgebra_conversions!(nalgebra_X_Y, "nalgebra-X_Y")` line, and a copy of `tests/nalgebra_interop.rs`. Keep older versions; removing one is a breaking change
 - Dev only: `csv`, `serde`, `plotters`, `criterion`, `rand`, `rand_pcg`, `fusion-c-sys` (path-only, stripped on publish)
 - C reference implementation in `fusion-c/` (git submodule — `git submodule update --init`)
 

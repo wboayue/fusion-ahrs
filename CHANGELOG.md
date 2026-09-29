@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - `Vector`, `Quaternion`, `Matrix`, and `Euler` math types mirroring the C library's `FusionMath.h`. Arithmetic follows C's operation order and matches C built with `FUSION_USE_NORMAL_SQRT` bit for bit; the default C build uses a fast approximate inverse square root, and normalising a zero vector returns zero where C returns NaN.
+- Optional `nalgebra-0_35` feature with `From` conversions both ways between `Vector`/`Quaternion`/`Matrix` and nalgebra's `Vector3<f32>`/`Quaternion<f32>`/`UnitQuaternion<f32>`/`Matrix3<f32>`, so nalgebra values can be passed directly to the API. Features are versioned, so future nalgebra releases get new features alongside the old ones instead of breaking changes. The feature requires Rust 1.89 (nalgebra's MSRV).
 - Functions that take vectors accept `impl Into<Vector>`, so `[f32; 3]` arrays work directly; `set_quaternion` accepts `impl Into<Quaternion>`, and the calibration functions accept `impl Into<Matrix>`.
 
 ### Changed
-- **Breaking:** the public API uses the crate's own math types instead of `nalgebra`. `Ahrs::quaternion` returns `Quaternion`; `gravity`, `linear_acceleration`, `earth_acceleration`, `Offset::update`, `Offset::offset`, `axes_swap`, `calibrate_inertial`, and `calibrate_magnetic` return `Vector`. `nalgebra` is no longer a dependency; optional conversions will follow behind a feature.
+- **Breaking:** the public API uses the crate's own math types instead of `nalgebra`. `Ahrs::quaternion` returns `Quaternion`; `gravity`, `linear_acceleration`, `earth_acceleration`, `Offset::update`, `Offset::offset`, `axes_swap`, `calibrate_inertial`, and `calibrate_magnetic` return `Vector`. `nalgebra` is no longer a required dependency; see the `nalgebra-0_35` feature.
+- The default build now works on the declared MSRV (Rust 1.85). Previously the required `nalgebra` 0.35 dependency needed Rust 1.89.
 - In 9-axis mode, the quaternion and acceleration outputs now match the C library (built with `FUSION_USE_NORMAL_SQRT`) bit for bit on the test data (previously within about 5e-7). Remaining differences come only from `libm` trigonometric functions (`asinf`, `atan2f`, `sinf`, `cosf`), used by the error angles, `set_heading`, and external heading updates.
 
 ### Removed
