@@ -70,6 +70,9 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 - In library code use `libm` for float functions (`libm::sqrtf`, `libm::fabsf`, …), since `no_std` on the MSRV lacks `f32` methods
 - Maintain embedded compatibility: `src/lib.rs` is `#![no_std]` unconditionally — do not introduce `std`-only dependencies or APIs
 - Most modules (`ahrs`, `bias`, `calibration`, `compass`, `math`, `remap`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
+- API stability follows the README "Versioning" section: from 1.0, new settings/state fields, renamed or removed items, argument reorders, and removed nalgebra features are major-version changes; MSRV bumps are minor-only and go in the changelog
+- Ported functions keep the C library's argument order (e.g. `calculate_heading(accelerometer, magnetometer, convention)` like `FusionCompass`)
+- CI (`build.yml`) runs tests on stable, a `lint` job (fmt, clippy with and without features, rustdoc `-D warnings`), a `docs` job (nightly rustdoc with `--cfg docsrs`, as docs.rs builds), and an `msrv` job (Rust 1.85, host and `thumbv7em-none-eabihf`, default features)
 - Exact `f32` test constants (e.g. adjacent values around a boundary): use `f32::from_bits(0x…)`; long literals trip clippy `excessive_precision`
 - Commit messages follow conventional-commit style. Common prefixes: `feat(scope): …`, `fix(scope): …`, `docs: …`, `test: …`, `refactor: …`, `bench: …`, `chore(scope): …` (e.g. `chore(deps)`, `chore(cargo)`, `chore(parity)`). `fmt: …` is the project-specific prefix for pure `cargo fmt` commits
 
@@ -132,7 +135,7 @@ Keep `CHANGELOG.md` following [Keep a Changelog 1.1.0](https://keepachangelog.co
 
 ## Release Workflow
 1. Feature PRs are squash-merged with a conventional title ending in `(#N)`
-2. Release PR `chore(release): vX.Y.Z`: bump `Cargo.toml`, promote `[Unreleased]`, update compare links; run `cargo package` (verifies the crate builds without `fusion-c-sys`), then unpack `target/package/fusion-ahrs-X.Y.Z.crate` and run `cargo test --all-features` inside it, since `cargo package` only builds the library. Tests that need `fusion-c-sys` must be in the `exclude` list
+2. Release PR `chore(release): vX.Y.Z`: bump `Cargo.toml`, promote `[Unreleased]`, update compare links; run `cargo package` (verifies the crate builds without `fusion-c-sys`), then unpack `target/package/fusion-ahrs-X.Y.Z.crate` and run `cargo test --all-features` inside it with a fresh `CARGO_TARGET_DIR` (a reused one can hold a stale build of the same version), since `cargo package` only builds the library. Tests that need `fusion-c-sys` must be in the `exclude` list
 3. After merge: `just tag vX.Y.Z`, then create the GitHub release from the approved notes
 4. The maintainer runs `cargo publish`; afterwards confirm crates.io and docs.rs (`https://docs.rs/fusion-ahrs/X.Y.Z/fusion_ahrs/`) show the new version
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- README "Versioning" section describing the stability policy from 1.0: how upstream C changes, MSRV bumps, and nalgebra features are versioned.
+- `no-std` and `no-std::no-alloc` crates.io categories.
+
+### Changed
+- **Breaking:** `calculate_heading` takes `(accelerometer, magnetometer, convention)`, matching the C library's `FusionCompass` argument order and the other ported functions. Previously the convention came first.
+- Licensed under MIT only. Earlier releases remain available under MIT OR Apache-2.0.
+
 ## [0.9.0] - 2026-09-28
 
 Replaces `nalgebra` in the public API with the crate's own math types that mirror the C library (#42, #43), adds optional nalgebra conversions (#44), and makes API names consistent ahead of 1.0 (#45). This release contains breaking changes; see the rename table below.

@@ -156,7 +156,10 @@ impl Vector {
     /// Multiplies by the reciprocal of the norm, matching C's
     /// `FusionVectorNormalise` built with `FUSION_USE_NORMAL_SQRT` (the
     /// default C build uses a fast approximate inverse square root instead).
-    /// Unlike C, a zero vector returns zero rather than NaN.
+    /// Unlike C, a zero vector returns zero rather than NaN; the AHRS relies
+    /// on this for sensor and reference vectors that are exactly opposite.
+    /// ([`Quaternion::normalize`](crate::Quaternion::normalize) keeps C's
+    /// NaN.)
     ///
     /// # Example
     /// ```

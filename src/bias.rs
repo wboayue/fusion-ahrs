@@ -50,6 +50,9 @@ impl Bias {
 
     /// Creates bias correction with the given settings.
     ///
+    /// # Panics
+    /// In debug builds, if `settings.sample_rate` is not positive.
+    ///
     /// # Example
     /// ```
     /// use fusion_ahrs::{Bias, BiasSettings};
@@ -72,6 +75,9 @@ impl Bias {
     }
 
     /// Updates the settings, keeping the current offset estimate.
+    ///
+    /// # Panics
+    /// In debug builds, if `settings.sample_rate` is not positive.
     ///
     /// # Example
     /// ```
