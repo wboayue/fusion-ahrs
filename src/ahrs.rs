@@ -221,13 +221,13 @@ impl Ahrs {
     /// use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
     ///
     /// let settings = AhrsSettings {
-    ///     sample_rate: 512.0,
     ///     convention: Convention::Enu,
     ///     gain: 0.75,
     ///     gyroscope_range: 1000.0,
     ///     acceleration_rejection: 15.0,
     ///     magnetic_rejection: 25.0,
     ///     rejection_timeout: 2.0,
+    ///     ..Default::default()
     /// };
     ///
     /// let mut ahrs = Ahrs::with_settings(settings);
