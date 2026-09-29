@@ -264,47 +264,48 @@ pub struct AhrsFlags {
     pub magnetic_recovery: bool,
 }
 
-/// Gyroscope offset correction settings
-///
-/// Configuration for the gyroscope offset correction algorithm.
-/// This algorithm estimates and corrects for gyroscope bias drift
-/// that can occur due to temperature changes or sensor aging.
+/// Gyroscope bias correction settings, mirroring the C library's
+/// `FusionBiasSettings`
 ///
 /// # Example
 /// ```
-/// use fusion_ahrs::OffsetSettings;
+/// use fusion_ahrs::BiasSettings;
 ///
-/// let settings = OffsetSettings {
-///     cutoff_frequency: 0.01,  // Slower convergence
-///     timeout: 10.0,           // 10 seconds to detect stationary
-///     threshold: 3.0,          // 3 deg/s motion threshold
+/// let settings = BiasSettings {
+///     sample_rate: 400.0,         // 400 Hz
+///     stationary_threshold: 3.0,  // 3 deg/s motion threshold
+///     stationary_period: 10.0,    // 10 s stationary before estimating
+///     cutoff_frequency: 0.02,     // C library value
 /// };
 /// ```
 #[derive(Debug, Clone, Copy)]
-pub struct OffsetSettings {
+pub struct BiasSettings {
+    /// Sample rate in Hz (default 100). Must be positive.
+    pub sample_rate: f32,
+    /// Stationary threshold in degrees per second (default 3.0)
+    ///
+    /// If any gyroscope axis exceeds this value, the sensor is considered
+    /// in motion and the stationary timer restarts.
+    pub stationary_threshold: f32,
+    /// Stationary period in seconds (default 3.0)
+    ///
+    /// How long the sensor must stay stationary before offset estimation
+    /// begins. Longer periods reduce false corrections.
+    pub stationary_period: f32,
     /// Low-pass filter cutoff frequency in Hz (default 0.02)
     ///
-    /// Used to compute the filter coefficient as `2π × cutoff_frequency / sample_rate`.
-    /// Lower values provide more stability but slower convergence.
+    /// Fixed at 0.02 in the C library; configurable here. Lower values are
+    /// more stable but converge more slowly.
     pub cutoff_frequency: f32,
-    /// Timeout period in seconds before offset estimation begins (default 3.0)
-    ///
-    /// Duration the sensor must remain stationary before offset
-    /// correction begins. Longer timeouts reduce false corrections.
-    pub timeout: f32,
-    /// Gyroscope threshold in degrees per second (default 3.0)
-    ///
-    /// If any gyroscope axis exceeds this value, the sensor is
-    /// considered in motion and the stationary timer resets.
-    pub threshold: f32,
 }
 
-impl Default for OffsetSettings {
+impl Default for BiasSettings {
     fn default() -> Self {
         Self {
+            sample_rate: 100.0,
+            stationary_threshold: 3.0,
+            stationary_period: 3.0,
             cutoff_frequency: 0.02,
-            timeout: 3.0,
-            threshold: 3.0,
         }
     }
 }

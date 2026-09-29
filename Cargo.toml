@@ -17,7 +17,7 @@ keywords = ["ahrs", "imu", "sensor-fusion", "quaternion", "embedded"]
 categories = ["embedded", "algorithms", "science"]
 exclude = [
     "justfile",
-    "CLAUDE.md",
+    "AGENTS.md",
     "fusion-c",
     "fusion-c-sys",
     ".github",

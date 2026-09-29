@@ -21,7 +21,7 @@
 //! - Complementary filter with sensor fusion
 //! - Automatic accelerometer rejection during motion
 //! - Automatic magnetometer rejection during magnetic interference  
-//! - Gyroscope offset correction for temperature drift
+//! - Gyroscope bias (offset) correction for temperature drift
 //! - Support for multiple Earth coordinate conventions (NWU, ENU, NED)
 //! - `#![no_std]` compatible for embedded systems
 //!
@@ -52,19 +52,19 @@
 //! For more documentation and examples, see: <https://github.com/wboayue/fusion-ahrs>
 
 mod ahrs;
-pub mod axes;
-pub mod calibration;
-pub mod compass;
+mod bias;
+mod calibration;
+mod compass;
 pub mod interop;
 mod math;
-pub mod offset;
+mod remap;
 mod types;
 
-// Re-export all public types and functions
+// All items are exported from the crate root
 pub use ahrs::Ahrs;
-pub use axes::{AxesAlignment, axes_swap};
+pub use bias::Bias;
 pub use calibration::{calibrate_inertial, calibrate_magnetic};
 pub use compass::calculate_heading;
 pub use math::{DEG_TO_RAD, Euler, Matrix, Quaternion, RAD_TO_DEG, Vector};
-pub use offset::Offset;
+pub use remap::{RemapAlignment, remap};
 pub use types::*;

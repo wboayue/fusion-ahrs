@@ -14,7 +14,7 @@ Rust port of xioTechnologies' [Fusion AHRS C library](https://github.com/xioTech
 - **No-std Compatible**: Works in embedded environments without the standard library
 - **Zero-cost Abstractions**: High-level API with no runtime overhead
 - **AHRS Algorithm**: Sensor fusion combining gyroscope, accelerometer, and magnetometer data
-- **Gyroscope Offset Correction**: Runtime calibration for temperature compensation
+- **Gyroscope Bias Correction**: Runtime offset calibration for temperature compensation
 - **Sensor Calibration**: Built-in calibration functions for all sensor types
 - **Self-contained Math Types**: `Vector`, `Quaternion`, `Matrix`, and `Euler` mirror the C library, with no third-party types in the public API
 
@@ -193,26 +193,32 @@ if flags.startup {
 | `acceleration_recovery`  | `bool` | `true` if acceleration recovery is active |
 | `magnetic_recovery`      | `bool` | `true` if magnetic recovery is active |
 
-## Gyroscope Offset Correction Algorithm
+## Gyroscope Bias Correction Algorithm
 
-The gyroscope offset correction algorithm provides run-time calibration of the gyroscope offset to compensate for variations in temperature and fine-tune existing offset calibration that may already be in place. This algorithm should be used in conjunction with the AHRS algorithm to achieve best performance.
+The gyroscope bias correction algorithm (`Bias`, C `FusionBias`) provides run-time calibration of the gyroscope offset to compensate for variations in temperature and fine-tune existing offset calibration that may already be in place. This algorithm should be used in conjunction with the AHRS algorithm to achieve best performance.
 
 ```rust
-use fusion_ahrs::{Offset, OffsetSettings, Vector};
+use fusion_ahrs::{Bias, BiasSettings, Vector};
 
-let settings = OffsetSettings::default();
-let sample_rate = 100.0; // Hz
-let mut offset = Offset::new(settings, sample_rate);
+let mut bias = Bias::with_settings(BiasSettings {
+    sample_rate: 100.0,        // Hz
+    stationary_threshold: 3.0, // deg/s
+    stationary_period: 3.0,    // seconds
+    ..Default::default()
+});
 
-// Apply offset correction — update() returns the corrected reading
+// Apply bias correction — update() returns the corrected reading
 let gyroscope = Vector::new(0.1, -0.05, 0.02); // Small offsets while stationary
-let corrected_gyroscope: Vector = offset.update(gyroscope);
+let corrected_gyroscope: Vector = bias.update(gyroscope);
 
-// Inspect the current offset estimate at any time
-let calculated_offset: Vector = offset.offset();
+// Inspect the current offset estimate at any time, e.g. to save it
+let offset: Vector = bias.offset();
+
+// Restore a saved offset at startup so correction begins immediately
+bias.set_offset(offset);
 ```
 
-The algorithm calculates the gyroscope offset by detecting the stationary periods that occur naturally in most applications. Gyroscope measurements are sampled during these periods and low-pass filtered to obtain the gyroscope offset. The algorithm requires that gyroscope measurements do not exceed ±3 degrees per second while stationary. Basic gyroscope offset calibration may be necessary to ensure that the initial offset plus measurement noise is within these bounds.
+The algorithm calculates the gyroscope offset by detecting the stationary periods that occur naturally in most applications. Gyroscope measurements are sampled during these periods and low-pass filtered to obtain the gyroscope offset. With default settings, the algorithm requires that gyroscope measurements do not exceed ±3 degrees per second (`stationary_threshold`) while stationary. Basic gyroscope offset calibration may be necessary to ensure that the initial offset plus measurement noise is within these bounds.
 
 ## Sensor Calibration
 
@@ -276,7 +282,7 @@ Sensor inputs and algorithm outputs use the crate's own `f32` math types, which 
 Their arithmetic follows the C library's operation order, so results match C when it is built with `FUSION_USE_NORMAL_SQRT` (the default C build uses a fast approximate inverse square root). Functions that take vectors accept anything convertible into a `Vector`, including `[f32; 3]`; quaternions convert from `[f32; 4]` (scalar first) and matrices from `[[f32; 3]; 3]` rows.
 
 ```rust
-use fusion_ahrs::{Euler, Quaternion, Vector, axes_swap, AxesAlignment};
+use fusion_ahrs::{Euler, Quaternion, Vector, remap, RemapAlignment};
 
 let v = Vector::new(1.0, 2.0, 3.0);
 let w: Vector = [4.0, 5.0, 6.0].into();
@@ -285,7 +291,7 @@ assert_eq!(v.dot(w), 32.0);
 let q = Quaternion::from_euler(Euler::new(0.0, 0.0, 90.0));
 let rotated = q.rotate(Vector::new(1.0, 0.0, 0.0)); // ≈ (0, 1, 0)
 
-let body = axes_swap([1.0, 2.0, 3.0], AxesAlignment::PyNxPz);
+let body = remap([1.0, 2.0, 3.0], RemapAlignment::PyNxPz);
 assert_eq!(body, Vector::new(2.0, -1.0, 3.0));
 ```
 

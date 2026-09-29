@@ -24,7 +24,7 @@ use crate::types::Convention;
 /// # Example
 /// ```
 /// use fusion_ahrs::Vector;
-/// use fusion_ahrs::{Convention, compass::calculate_heading};
+/// use fusion_ahrs::{Convention, calculate_heading};
 ///
 /// let accel = Vector::new(0.0, 0.0, 1.0); // Level device (NWU)
 /// let mag = Vector::new(1.0, 0.0, 0.0);   // Pointing North (NWU)

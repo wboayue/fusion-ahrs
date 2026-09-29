@@ -14,7 +14,7 @@
 //!
 //! Run with: `cargo run --example advanced`
 
-use fusion_ahrs::{Ahrs, AhrsSettings, Convention, Euler, Offset, OffsetSettings, Vector};
+use fusion_ahrs::{Ahrs, AhrsSettings, Bias, BiasSettings, Convention, Euler, Vector};
 use plotters::prelude::*;
 use serde::Deserialize;
 use std::error::Error;
@@ -57,10 +57,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         sensor_data.push(record);
     }
 
-    // Initialize gyroscope offset correction
+    // Initialize gyroscope bias correction
     // This will automatically detect when the device is stationary
     // and estimate gyroscope bias for temperature compensation
-    let mut offset = Offset::new(OffsetSettings::default(), SAMPLE_RATE);
+    let mut bias = Bias::with_settings(BiasSettings {
+        sample_rate: SAMPLE_RATE,
+        ..Default::default()
+    });
 
     // Initialize AHRS algorithm
     let mut ahrs = Ahrs::new();
@@ -107,7 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Apply gyroscope offset correction for bias compensation
         // This automatically detects stationary periods and estimates bias
-        gyroscope = offset.update(gyroscope);
+        gyroscope = bias.update(gyroscope);
 
         // Update AHRS with all three sensor types for full 9-DOF fusion
         // The algorithm will automatically reject sensors during motion/interference

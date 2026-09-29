@@ -30,11 +30,11 @@ cargo run --example advanced        # full 9-DOF with offset & diagnostics
 src/
   lib.rs          – public API re-exports
   ahrs.rs         – core AHRS algorithm (update, quaternion, gravity, linear/earth acceleration)
-  types.rs        – AhrsSettings, AhrsInternalStates, AhrsFlags, Convention, OffsetSettings
-  offset.rs       – gyroscope offset correction
+  types.rs        – AhrsSettings, AhrsInternalStates, AhrsFlags, Convention, BiasSettings
+  bias.rs         – gyroscope bias (offset) correction (Bias, mirrors C FusionBias)
   calibration.rs  – calibrate_inertial(), calibrate_magnetic()
   math/           – Vector, Quaternion, Matrix, Euler (mirror FusionMath.h), DEG_TO_RAD / RAD_TO_DEG
-  axes.rs         – sensor axes alignment (axes_swap, AxesAlignment)
+  remap.rs        – sensor axes remapping (remap, RemapAlignment; mirrors C FusionRemap)
   compass.rs      – tilt-compensated magnetic heading (calculate_heading)
 fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe FFI wrappers (publish = false)
 ```
@@ -49,7 +49,9 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 ### Project-Specific Conventions
 - Math operations are inherent methods on the `math/` types; port new C math functions there with C's exact operation order (C parity is checked bit for bit in `tests/c_math_test.rs`)
 - Public functions take `impl Into<Vector>` (etc.) and delegate to a private non-generic body, so the algorithm is compiled and inlined in this crate rather than in each caller. Small math ops carry `#[inline]`
-- Settings types (`AhrsSettings`, `OffsetSettings`) are plain structs constructed directly — no builders
+- Settings types (`AhrsSettings`, `BiasSettings`) are plain structs constructed directly — no builders. Stateful types follow one shape: `new()` (defaults), `with_settings`, `set_settings`, `settings()`, `restart()`
+- Naming: Rust API guidelines (no `get_` prefix on getters); use the C library's current names for types and functions (`Bias`, `remap`, `Vector`, …)
+- Modules are private; every public item is exported from the crate root only (except the doc-only `interop` module)
 - All public APIs carry rustdoc with at least one example; doctests should compile
 
 ### Algorithm Features
@@ -67,7 +69,7 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 - Use the crate math types (`Vector`, `Quaternion`, `Matrix`, `Euler`) consistently; no third-party types in the public API
 - In library code use `libm` for float functions (`libm::sqrtf`, `libm::fabsf`, …), since `no_std` on the MSRV lacks `f32` methods
 - Maintain embedded compatibility: `src/lib.rs` is `#![no_std]` unconditionally — do not introduce `std`-only dependencies or APIs
-- Most modules (`ahrs`, `axes`, `calibration`, `compass`, `math`, `offset`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
+- Most modules (`ahrs`, `bias`, `calibration`, `compass`, `math`, `remap`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
 - Exact `f32` test constants (e.g. adjacent values around a boundary): use `f32::from_bits(0x…)`; long literals trip clippy `excessive_precision`
 - Commit messages follow conventional-commit style. Common prefixes: `feat(scope): …`, `fix(scope): …`, `docs: …`, `test: …`, `refactor: …`, `bench: …`, `chore(scope): …` (e.g. `chore(deps)`, `chore(cargo)`, `chore(parity)`). `fmt: …` is the project-specific prefix for pure `cargo fmt` commits
 
