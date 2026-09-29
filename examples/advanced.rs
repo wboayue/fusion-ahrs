@@ -68,23 +68,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Configure AHRS settings for optimal performance
     let settings = AhrsSettings {
+        sample_rate: SAMPLE_RATE,     // Nominal sample rate
         convention: Convention::Nwu,  // North-West-Up coordinate system
         gain: 0.5,                    // Moderate fusion gain
-        gyroscope_range: 2000.0,      // 2000 deg/s overflow detection
+        gyroscope_range: 2000.0,      // 2000 deg/s overrange detection
         acceleration_rejection: 10.0, // 10° acceleration rejection threshold
         magnetic_rejection: 10.0,     // 10° magnetic rejection threshold
-        recovery_trigger_period: (5.0 * SAMPLE_RATE) as u32, // 5 seconds recovery
+        rejection_timeout: 5.0,       // 5 seconds before recovery
     };
     ahrs.set_settings(settings);
 
     println!(
         "AHRS configured with {} convention, {:.1} gain",
-        match settings.convention {
-            Convention::Nwu => "NWU",
-            Convention::Enu => "ENU",
-            Convention::Ned => "NED",
-        },
-        settings.gain
+        settings.convention, settings.gain
     );
 
     // Prepare data storage for results and diagnostics
@@ -116,7 +112,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Update AHRS with all three sensor types for full 9-DOF fusion
         // The algorithm will automatically reject sensors during motion/interference
-        ahrs.update(gyroscope, accelerometer, magnetometer, delta_times[i]);
+        // Compensate for sample clock jitter using measured timestamps
+        ahrs.set_sample_period(delta_times[i]);
+        ahrs.update(gyroscope, accelerometer, magnetometer);
 
         // Extract orientation as Euler angles
         let quaternion = ahrs.quaternion();
@@ -128,12 +126,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             let flags = ahrs.flags();
             let states = ahrs.internal_states();
             println!(
-                "Sample {}: orientation=({:.1}°,{:.1}°,{:.1}°) initializing={} accel_err={:.1}° mag_err={:.1}°",
+                "Sample {}: orientation=({:.1}°,{:.1}°,{:.1}°) startup={} accel_err={:.1}° mag_err={:.1}°",
                 i,
                 roll.to_degrees(),
                 pitch.to_degrees(),
                 yaw.to_degrees(),
-                flags.initialising,
+                flags.startup,
                 states.acceleration_error,
                 states.magnetic_error
             );
@@ -161,8 +159,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Get flags
         let ahrs_flags = ahrs.flags();
         flags.push((
-            if ahrs_flags.initialising { 1.0 } else { 0.0 },
-            if ahrs_flags.angular_rate_recovery {
+            if ahrs_flags.startup { 1.0 } else { 0.0 },
+            if ahrs_flags.overrange_recovery {
                 1.0
             } else {
                 0.0
@@ -194,8 +192,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 ///
 /// Generates an 11-panel plot showing:
 /// 1. Euler angles (Roll, Pitch, Yaw)
-/// 2. Initialising flag
-/// 3. Angular rate recovery flag  
+/// 2. Startup flag
+/// 3. Overrange recovery flag
 /// 4. Acceleration error magnitude
 /// 5. Accelerometer ignored flag
 /// 6. Acceleration recovery trigger
@@ -276,21 +274,21 @@ fn create_advanced_plots(
 
     euler_chart.configure_series_labels().draw()?;
 
-    // 2. Initialising flag
+    // 2. Startup flag
     create_bool_plot(
         &charts[1],
         sensor_data,
         &flags.iter().map(|f| f.0).collect::<Vec<_>>(),
-        "Initialising",
+        "Startup",
         time_range.clone(),
     )?;
 
-    // 3. Angular rate recovery flag
+    // 3. Overrange recovery flag
     create_bool_plot(
         &charts[2],
         sensor_data,
         &flags.iter().map(|f| f.1).collect::<Vec<_>>(),
-        "Angular rate recovery",
+        "Overrange recovery",
         time_range.clone(),
     )?;
 

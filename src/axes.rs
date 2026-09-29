@@ -19,6 +19,8 @@
 //! assert_eq!(body.z, 3.0);   // Body Z = Sensor Z
 //! ```
 
+use core::fmt;
+
 use nalgebra::Vector3;
 
 /// Axes alignment describing the sensor axes relative to the body axes.
@@ -104,6 +106,52 @@ pub enum AxesAlignment {
     NzNyNx,
     /// -Z+X-Y
     NzPxNy,
+}
+
+impl AxesAlignment {
+    /// Returns the alignment as a string, e.g. `"+Y-X+Z"`.
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::AxesAlignment;
+    ///
+    /// assert_eq!(AxesAlignment::PyNxPz.as_str(), "+Y-X+Z");
+    /// assert_eq!(AxesAlignment::PyNxPz.to_string(), "+Y-X+Z");
+    /// ```
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            AxesAlignment::PxPyPz => "+X+Y+Z",
+            AxesAlignment::PxNzPy => "+X-Z+Y",
+            AxesAlignment::PxNyNz => "+X-Y-Z",
+            AxesAlignment::PxPzNy => "+X+Z-Y",
+            AxesAlignment::NxPyNz => "-X+Y-Z",
+            AxesAlignment::NxPzPy => "-X+Z+Y",
+            AxesAlignment::NxNyPz => "-X-Y+Z",
+            AxesAlignment::NxNzNy => "-X-Z-Y",
+            AxesAlignment::PyNxPz => "+Y-X+Z",
+            AxesAlignment::PyNzNx => "+Y-Z-X",
+            AxesAlignment::PyPxNz => "+Y+X-Z",
+            AxesAlignment::PyPzPx => "+Y+Z+X",
+            AxesAlignment::NyPxPz => "-Y+X+Z",
+            AxesAlignment::NyNzPx => "-Y-Z+X",
+            AxesAlignment::NyNxNz => "-Y-X-Z",
+            AxesAlignment::NyPzNx => "-Y+Z-X",
+            AxesAlignment::PzPyNx => "+Z+Y-X",
+            AxesAlignment::PzPxPy => "+Z+X+Y",
+            AxesAlignment::PzNyPx => "+Z-Y+X",
+            AxesAlignment::PzNxNy => "+Z-X-Y",
+            AxesAlignment::NzPyPx => "-Z+Y+X",
+            AxesAlignment::NzNxPy => "-Z-X+Y",
+            AxesAlignment::NzNyNx => "-Z-Y-X",
+            AxesAlignment::NzPxNy => "-Z+X-Y",
+        }
+    }
+}
+
+impl fmt::Display for AxesAlignment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 /// Swaps sensor axes for alignment with the body axes.
@@ -301,5 +349,11 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_display() {
+        assert_eq!(AxesAlignment::PxPyPz.as_str(), "+X+Y+Z");
+        assert_eq!(AxesAlignment::NzPxNy.as_str(), "-Z+X-Y");
     }
 }

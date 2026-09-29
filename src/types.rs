@@ -1,5 +1,7 @@
 //! Core types and conventions for the Fusion AHRS library
 
+use core::fmt;
+
 /// Earth axes convention
 ///
 /// Defines the coordinate system used for Earth-relative calculations.
@@ -43,6 +45,31 @@ pub enum Convention {
     Ned,
 }
 
+impl Convention {
+    /// Returns the convention as a string: `"NWU"`, `"ENU"`, or `"NED"`.
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::Convention;
+    ///
+    /// assert_eq!(Convention::Ned.as_str(), "NED");
+    /// assert_eq!(Convention::Enu.to_string(), "ENU");
+    /// ```
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Convention::Nwu => "NWU",
+            Convention::Enu => "ENU",
+            Convention::Ned => "NED",
+        }
+    }
+}
+
+impl fmt::Display for Convention {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// AHRS algorithm settings
 ///
 /// Configuration parameters for the AHRS algorithm. These settings control
@@ -54,16 +81,23 @@ pub enum Convention {
 /// use fusion_ahrs::{AhrsSettings, Convention};
 ///
 /// let settings = AhrsSettings {
+///     sample_rate: 512.0,            // 512 Hz
 ///     convention: Convention::Enu,
 ///     gain: 0.25,                    // Lower gain for more stability
 ///     gyroscope_range: 1000.0,       // 1000 deg/s range
-///     acceleration_rejection: 15.0,   // 15° threshold
-///     magnetic_rejection: 30.0,       // 30° threshold
-///     recovery_trigger_period: 1024,  // 2s at 512Hz
+///     acceleration_rejection: 15.0,  // 15° threshold
+///     magnetic_rejection: 30.0,      // 30° threshold
+///     rejection_timeout: 2.0,        // 2 seconds
 /// };
 /// ```
 #[derive(Debug, Clone, Copy)]
 pub struct AhrsSettings {
+    /// Sample rate in Hz (default 100)
+    ///
+    /// Determines the nominal sample period used to integrate the gyroscope.
+    /// Use [`Ahrs::set_sample_period`](crate::Ahrs::set_sample_period) to
+    /// compensate for per-sample timing jitter.
+    pub sample_rate: f32,
     /// Earth axes convention (NWU, ENU, or NED)
     pub convention: Convention,
     /// Algorithm gain controlling fusion rate (typically 0.5)
@@ -73,8 +107,8 @@ pub struct AhrsSettings {
     pub gain: f32,
     /// Gyroscope range limit in degrees per second
     ///
-    /// When gyroscope readings exceed this threshold, the algorithm will
-    /// reinitialize to prevent integration windup. Set to 0 to disable.
+    /// When gyroscope readings exceed 98% of this range, the algorithm
+    /// restarts while preserving its outputs. Set to 0 to disable.
     pub gyroscope_range: f32,
     /// Acceleration rejection threshold in degrees
     ///
@@ -86,22 +120,23 @@ pub struct AhrsSettings {
     /// When the angle between measured and expected magnetic field exceeds
     /// this threshold, the magnetometer will be ignored. Set to 0 to disable.
     pub magnetic_rejection: f32,
-    /// Recovery trigger period in samples
+    /// Rejection timeout in seconds
     ///
-    /// Number of consecutive samples before triggering recovery from
-    /// sensor rejection. Higher values provide more stability but slower recovery.
-    pub recovery_trigger_period: u32,
+    /// Maximum duration a sensor may be rejected before recovery is triggered.
+    /// Set to 0 to disable acceleration and magnetic rejection.
+    pub rejection_timeout: f32,
 }
 
 impl Default for AhrsSettings {
     fn default() -> Self {
         Self {
+            sample_rate: 100.0,
             convention: Convention::default(),
             gain: 0.5,
             gyroscope_range: 0.0,
-            acceleration_rejection: 90.0,
-            magnetic_rejection: 90.0,
-            recovery_trigger_period: 0,
+            acceleration_rejection: 0.0,
+            magnetic_rejection: 0.0,
+            rejection_timeout: 0.0,
         }
     }
 }
@@ -139,10 +174,9 @@ pub struct AhrsInternalStates {
     /// True when acceleration error exceeds rejection threshold,
     /// indicating device motion or sensor errors.
     pub accelerometer_ignored: bool,
-    /// Acceleration recovery trigger countdown
+    /// Acceleration recovery trigger as a fraction of the rejection timeout
     ///
-    /// Counts samples until acceleration recovery is triggered.
-    /// Resets when good accelerometer readings are detected.
+    /// Ranges from 0.0 to 1.0; recovery is triggered when it reaches 1.0.
     pub acceleration_recovery_trigger: f32,
     /// Magnetic error magnitude in degrees
     ///
@@ -154,10 +188,9 @@ pub struct AhrsInternalStates {
     /// True when magnetic error exceeds rejection threshold,
     /// indicating magnetic interference or sensor errors.
     pub magnetometer_ignored: bool,
-    /// Magnetic recovery trigger countdown
+    /// Magnetic recovery trigger as a fraction of the rejection timeout
     ///
-    /// Counts samples until magnetic recovery is triggered.
-    /// Resets when good magnetometer readings are detected.
+    /// Ranges from 0.0 to 1.0; recovery is triggered when it reaches 1.0.
     pub magnetic_recovery_trigger: f32,
 }
 
@@ -187,25 +220,25 @@ impl Default for AhrsInternalStates {
 /// let ahrs = Ahrs::new();
 /// let flags = ahrs.flags();
 ///
-/// if flags.initialising {
+/// if flags.startup {
 ///     println!("Algorithm still converging...");
 /// }
-/// if flags.angular_rate_recovery {
-///     println!("Recovering from gyroscope overflow");
+/// if flags.overrange_recovery {
+///     println!("Recovering from gyroscope overrange");
 /// }
 /// ```
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AhrsFlags {
-    /// Whether algorithm is in initialization mode
+    /// Whether the algorithm is in startup
     ///
     /// True during the first few seconds of operation when
     /// the algorithm uses higher gain for faster convergence.
-    pub initialising: bool,
-    /// Whether angular rate recovery is active
+    pub startup: bool,
+    /// Whether gyroscope overrange recovery is active
     ///
-    /// True when recovering from gyroscope range overflow.
-    /// The algorithm preserves orientation but reinitializes internal state.
-    pub angular_rate_recovery: bool,
+    /// True when recovering from gyroscope overrange.
+    /// The algorithm preserves its outputs but restarts internal state.
+    pub overrange_recovery: bool,
     /// Whether acceleration recovery is active
     ///
     /// True when the acceleration recovery mechanism is engaged

@@ -42,7 +42,7 @@ The algorithm calculates the orientation as the integration of the gyroscope sum
 use fusion_ahrs::Ahrs;
 use nalgebra::Vector3;
 
-// Option 1: default settings
+// Option 1: default settings (100 Hz sample rate)
 let mut ahrs = Ahrs::new();
 
 // Option 2: custom settings (see "Algorithm Settings" below)
@@ -53,9 +53,8 @@ let gyroscope = Vector3::new(0.0, 0.0, 0.0);      // deg/s
 let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
 let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // µT (or any units; will be normalized)
 
-// Update algorithm (typically called at 100Hz or higher)
-let sample_period = 0.01; // 10ms
-ahrs.update(gyroscope, accelerometer, magnetometer, sample_period);
+// Update algorithm once per sample at the configured sample rate
+ahrs.update(gyroscope, accelerometer, magnetometer);
 
 // Get orientation quaternion
 let quaternion = ahrs.quaternion();
@@ -68,19 +67,35 @@ println!("Roll: {:.1}°, Pitch: {:.1}°, Yaw: {:.1}°",
 );
 ```
 
-### Initialization
+### Sample Rate
 
-Initialization occurs when the algorithm starts for the first time and during angular rate recovery. During initialization, the acceleration and magnetic rejection features are disabled and the gain is ramped down from 10 to the final value over a 3 second period. This allows the measurement of orientation to rapidly converge from an arbitrary initial value to the value indicated by the sensors.
+The gyroscope is integrated over a fixed sample period of `1 / sample_rate`, set through `AhrsSettings::sample_rate`. If sample timing jitters, call `set_sample_period` with the measured period before each update:
 
-### Angular Rate Recovery
+```rust
+use fusion_ahrs::Ahrs;
+use nalgebra::Vector3;
 
-Angular rates that exceed the gyroscope measurement range cannot be tracked and will trigger an angular rate recovery. Angular rate recovery is activated when the angular rate exceeds 98% of the gyroscope measurement range and is equivalent to a reinitialization of the algorithm.
+let mut ahrs = Ahrs::new();
+let (gyroscope, accelerometer) = (Vector3::zeros(), Vector3::new(0.0, 0.0, 1.0));
+
+let measured_period = 0.0102; // seconds since previous sample
+ahrs.set_sample_period(measured_period);
+ahrs.update_no_magnetometer(gyroscope, accelerometer);
+```
+
+### Startup
+
+Startup occurs when the algorithm starts for the first time, after `restart()`, and during gyroscope overrange recovery. During startup, the acceleration and magnetic rejection features are disabled and the gain is ramped down from 10 to the final value over a 3 second period. This allows the measurement of orientation to rapidly converge from an arbitrary initial value to the value indicated by the sensors. If the initial orientation is already known, set it with `set_quaternion()` and call `skip_startup()` before the first update.
+
+### Gyroscope Overrange Recovery
+
+Angular rates that exceed the gyroscope measurement range cannot be tracked and will trigger an overrange recovery. Overrange recovery is activated when the angular rate exceeds 98% of the gyroscope measurement range and is equivalent to a restart of the algorithm that preserves the algorithm outputs.
 
 ### Acceleration Rejection
 
 The acceleration rejection feature reduces the errors that result from the accelerations of linear and rotational motion. Acceleration rejection works by calculating an error as the angular difference between the instantaneous measurement of inclination indicated by the accelerometer, and the current measurement of inclination provided by the algorithm output. If the error is greater than a threshold then the accelerometer will be ignored for that algorithm update. This is equivalent to a dynamic gain that decreases as accelerations increase.
 
-Prolonged accelerations risk an overdependency on the gyroscope and will trigger an acceleration recovery. Acceleration recovery activates when the error exceeds the threshold for more than 90% of algorithm updates over a period of *t / (0.1p - 9)*, where *t* is the recovery trigger period and *p* is the percentage of algorithm updates where the error exceeds the threshold. The recovery will remain active until the error exceeds the threshold for less than 90% of algorithm updates over the period *-t / (0.1p - 9)*. The accelerometer will be used by every algorithm update during recovery.
+Prolonged accelerations risk an overdependency on the gyroscope and will trigger an acceleration recovery. Acceleration recovery activates when the error exceeds the threshold for more than 90% of algorithm updates over a period of *t / (0.1p - 9)*, where *t* is the rejection timeout and *p* is the percentage of algorithm updates where the error exceeds the threshold. The recovery will remain active until the error exceeds the threshold for less than 90% of algorithm updates over the period *-t / (0.1p - 9)*. The accelerometer will be used by every algorithm update during recovery.
 
 ### Magnetic Rejection
 
@@ -115,12 +130,13 @@ The AHRS algorithm settings are defined by the `AhrsSettings` struct:
 use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
 
 let settings = AhrsSettings {
+    sample_rate: 100.0,
     convention: Convention::Nwu,
     gain: 0.5,
     gyroscope_range: 2000.0,
     acceleration_rejection: 10.0,
     magnetic_rejection: 10.0,
-    recovery_trigger_period: 500,
+    rejection_timeout: 5.0,
 };
 
 let mut ahrs = Ahrs::with_settings(settings);
@@ -128,12 +144,13 @@ let mut ahrs = Ahrs::with_settings(settings);
 
 | Setting                   | Type       | Description |
 |---------------------------|------------|-------------|
+| `sample_rate`             | `f32`      | Sample rate (in Hz). Default 100 |
 | `convention`              | `Convention` | Earth axes convention (NWU, ENU, or NED) |
-| `gain`                    | `f32`      | Determines the influence of the gyroscope relative to other sensors. A value of zero will disable initialisation and the acceleration and magnetic rejection features. A value of 0.5 is appropriate for most applications |
-| `gyroscope_range`         | `f32`      | Gyroscope range (in degrees per second). Angular rate recovery will activate if the gyroscope measurement exceeds 98% of this value. A value of zero will disable this feature |
-| `acceleration_rejection`  | `f32`      | Threshold (in degrees) used by the acceleration rejection feature. A value of zero will disable this feature. A value of 10 degrees is appropriate for most applications |
-| `magnetic_rejection`      | `f32`      | Threshold (in degrees) used by the magnetic rejection feature. A value of zero will disable the feature. A value of 10 degrees is appropriate for most applications |
-| `recovery_trigger_period` | `u32`      | Acceleration and magnetic recovery trigger period (in samples). A value of zero will disable the acceleration and magnetic rejection features. A period of 5 seconds is appropriate for most applications |
+| `gain`                    | `f32`      | Determines the influence of the gyroscope relative to other sensors. A value of zero will disable startup and the acceleration and magnetic rejection features. A value of 0.5 is appropriate for most applications |
+| `gyroscope_range`         | `f32`      | Gyroscope range (in degrees per second). Overrange recovery will activate if the gyroscope measurement exceeds 98% of this value. A value of zero (default) will disable this feature |
+| `acceleration_rejection`  | `f32`      | Threshold (in degrees) used by the acceleration rejection feature. A value of zero (default) will disable this feature. A value of 10 degrees is appropriate for most applications |
+| `magnetic_rejection`      | `f32`      | Threshold (in degrees) used by the magnetic rejection feature. A value of zero (default) will disable the feature. A value of 10 degrees is appropriate for most applications |
+| `rejection_timeout`       | `f32`      | Acceleration and magnetic rejection timeout (in seconds). A value of zero (default) will disable the acceleration and magnetic rejection features. A timeout of 5 seconds is appropriate for most applications |
 
 ### Algorithm Internal States
 
@@ -166,15 +183,15 @@ use fusion_ahrs::Ahrs;
 
 let ahrs = Ahrs::new();
 let flags = ahrs.flags();
-if flags.initialising {
-    println!("Algorithm is still initialising");
+if flags.startup {
+    println!("Algorithm is still starting up");
 }
 ```
 
 | Flag                     | Type   | Description |
 |--------------------------|--------|-------------|
-| `initialising`           | `bool` | `true` if the algorithm is initialising |
-| `angular_rate_recovery`  | `bool` | `true` if angular rate recovery is active |
+| `startup`                | `bool` | `true` if the algorithm is in startup |
+| `overrange_recovery`     | `bool` | `true` if gyroscope overrange recovery is active |
 | `acceleration_recovery`  | `bool` | `true` if acceleration recovery is active |
 | `magnetic_recovery`      | `bool` | `true` if magnetic recovery is active |
 
@@ -297,7 +314,7 @@ cargo run --example advanced
 
 ## Benchmarks
 
-Criterion benchmarks live in [`benches/ahrs_benchmarks.rs`](benches/ahrs_benchmarks.rs) and cover `update`, `update_no_magnetometer`, initialisation, steady state, batch updates, and per-output accessors. Reports land in `target/criterion/`.
+Criterion benchmarks live in [`benches/ahrs_benchmarks.rs`](benches/ahrs_benchmarks.rs) and cover `update`, `update_no_magnetometer`, startup, steady state, batch updates, and per-output accessors. Reports land in `target/criterion/`.
 
 ```bash
 cargo bench

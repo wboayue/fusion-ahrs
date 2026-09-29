@@ -46,28 +46,31 @@ fn test_sensor_data_processing() -> Result<(), Box<dyn Error>> {
     // Process with different settings to test various behaviors
     let test_cases = [
         AhrsSettings {
+            sample_rate: SAMPLE_RATE,
             convention: Convention::Nwu,
             gain: 0.5,
             gyroscope_range: 2000.0,
             acceleration_rejection: 10.0,
             magnetic_rejection: 10.0,
-            recovery_trigger_period: (5.0 * SAMPLE_RATE) as u32,
+            rejection_timeout: 5.0,
         },
         AhrsSettings {
+            sample_rate: SAMPLE_RATE,
             convention: Convention::Enu,
             gain: 0.5,
             gyroscope_range: 2000.0,
             acceleration_rejection: 10.0,
             magnetic_rejection: 10.0,
-            recovery_trigger_period: (5.0 * SAMPLE_RATE) as u32,
+            rejection_timeout: 5.0,
         },
         AhrsSettings {
+            sample_rate: SAMPLE_RATE,
             convention: Convention::Ned,
             gain: 0.5,
             gyroscope_range: 2000.0,
             acceleration_rejection: 10.0,
             magnetic_rejection: 10.0,
-            recovery_trigger_period: (5.0 * SAMPLE_RATE) as u32,
+            rejection_timeout: 5.0,
         },
     ];
 
@@ -92,7 +95,8 @@ fn test_sensor_data_processing() -> Result<(), Box<dyn Error>> {
             let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
             let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);
 
-            ahrs.update(gyroscope, accelerometer, magnetometer, delta_times[j]);
+            ahrs.set_sample_period(delta_times[j]);
+            ahrs.update(gyroscope, accelerometer, magnetometer);
 
             let quaternion = ahrs.quaternion();
             let (roll, pitch, yaw) = quaternion.euler_angles();
@@ -130,7 +134,7 @@ fn test_sensor_data_processing() -> Result<(), Box<dyn Error>> {
 
         // Check algorithm completed initialization
         assert!(
-            !ahrs.flags().initialising,
+            !ahrs.flags().startup,
             "Algorithm should have completed initialization for case {}",
             i
         );
@@ -172,21 +176,20 @@ fn test_update_method_consistency() -> Result<(), Box<dyn Error>> {
     let mut ahrs_no_mag = Ahrs::new();
 
     for data in sensor_data.iter() {
-        let delta_time = 0.01;
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
         let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
         let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);
 
         // Update with magnetometer
-        ahrs_full.update(gyroscope, accelerometer, magnetometer, delta_time);
+        ahrs_full.update(gyroscope, accelerometer, magnetometer);
 
         // Update without magnetometer
-        ahrs_no_mag.update_no_magnetometer(gyroscope, accelerometer, delta_time);
+        ahrs_no_mag.update_no_magnetometer(gyroscope, accelerometer);
     }
 
     // Both should have completed initialization
-    assert!(!ahrs_full.flags().initialising);
-    assert!(!ahrs_no_mag.flags().initialising);
+    assert!(!ahrs_full.flags().startup);
+    assert!(!ahrs_no_mag.flags().startup);
 
     // Roll and pitch should be similar (heading will differ)
     let (roll_full, pitch_full, _) = ahrs_full.quaternion().euler_angles();
@@ -233,12 +236,11 @@ fn test_numerical_stability() -> Result<(), Box<dyn Error>> {
 
     // Process all data and check quaternion stays normalized
     for (i, data) in sensor_data.iter().enumerate() {
-        let delta_time = 0.01;
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
         let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
         let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);
 
-        ahrs.update(gyroscope, accelerometer, magnetometer, delta_time);
+        ahrs.update(gyroscope, accelerometer, magnetometer);
 
         // Check quaternion normalization every 100 samples
         if i % 100 == 0 {
@@ -287,12 +289,11 @@ fn test_gravity_quaternion_consistency() -> Result<(), Box<dyn Error>> {
     let mut ahrs = Ahrs::new();
 
     for (i, data) in sensor_data.iter().enumerate() {
-        let delta_time = 0.01;
         let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
         let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
         let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);
 
-        ahrs.update(gyroscope, accelerometer, magnetometer, delta_time);
+        ahrs.update(gyroscope, accelerometer, magnetometer);
 
         // Check gravity calculation consistency
         let gravity = ahrs.gravity();

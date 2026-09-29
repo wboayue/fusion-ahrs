@@ -45,7 +45,8 @@ fn test_half_magnetic_ned_formula() {
     let q_before = ahrs.quaternion();
 
     // Single update with zero gyro - orientation should barely change
-    ahrs.update(gyro, accel, mag, 0.001);
+    ahrs.set_sample_period(0.001);
+    ahrs.update(gyro, accel, mag);
 
     // The internal half_magnetic should use correct formula
     // We can verify by checking the states show reasonable error
@@ -85,7 +86,7 @@ fn test_linear_acceleration_ned_convention() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, accel_ned, mag, 0.01);
+        ahrs.update(gyro, accel_ned, mag);
     }
 
     // For a stationary level device in NED:
@@ -121,7 +122,7 @@ fn test_linear_acceleration_nwu_convention() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, accel_nwu, mag, 0.01);
+        ahrs.update(gyro, accel_nwu, mag);
     }
 
     let linear_accel = ahrs.linear_acceleration();
@@ -146,7 +147,7 @@ fn test_flags_recovery_comparison() {
         gain: 0.5,
         acceleration_rejection: 10.0,
         magnetic_rejection: 10.0,
-        recovery_trigger_period: 100,
+        rejection_timeout: 1.0,
         ..Default::default()
     };
     let mut ahrs = Ahrs::with_settings(settings);
@@ -157,13 +158,13 @@ fn test_flags_recovery_comparison() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, good_accel, mag, 0.01);
+        ahrs.update(gyro, good_accel, mag);
     }
 
     // Now apply a few bad readings to increment trigger (but not exceed timeout)
     let bad_accel = Vector3::new(2.0, 2.0, 1.0);
     for _ in 0..50 {
-        ahrs.update(gyro, bad_accel, mag, 0.01);
+        ahrs.update(gyro, bad_accel, mag);
     }
 
     let flags = ahrs.flags();
@@ -197,20 +198,19 @@ fn test_flags_recovery_comparison() {
     );
 }
 
-/// Test initialise() sets timeout correctly
-/// C: timeout = recovery_trigger_period
-/// Not: timeout = 0
+/// Test restart() sets recovery thresholds correctly
+/// C: threshold = rejection_timeout (in samples)
+/// Not: threshold = 0
 #[test]
-fn test_initialise_timeout_values() {
+fn test_restart_threshold_values() {
     let settings = AhrsSettings {
-        recovery_trigger_period: 500,
+        rejection_timeout: 5.0,
         ..Default::default()
     };
     let ahrs = Ahrs::with_settings(settings);
 
-    // After initialization, check flags behavior
-    // If timeout is initialized to 0 (wrong), any trigger > 0 would show recovery
-    // If timeout is initialized to recovery_trigger_period (correct), recovery starts false
+    // If threshold is initialized to 0 (wrong), any trigger > 0 would show recovery
+    // If threshold is initialized to rejection_timeout (correct), recovery starts false
 
     let flags = ahrs.flags();
 
@@ -226,7 +226,7 @@ fn test_initialise_timeout_values() {
 }
 
 /// Test internal_states returns normalized recovery trigger (0.0-1.0)
-/// C: trigger / recovery_trigger_period
+/// C: trigger / rejection_timeout (in samples)
 /// Not: raw trigger value
 #[test]
 fn test_internal_states_normalized_trigger() {
@@ -234,7 +234,7 @@ fn test_internal_states_normalized_trigger() {
         convention: Convention::Nwu,
         gain: 0.5,
         acceleration_rejection: 10.0,
-        recovery_trigger_period: 100,
+        rejection_timeout: 1.0,
         ..Default::default()
     };
     let mut ahrs = Ahrs::with_settings(settings);
@@ -245,13 +245,13 @@ fn test_internal_states_normalized_trigger() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, good_accel, mag, 0.01);
+        ahrs.update(gyro, good_accel, mag);
     }
 
     // Apply some bad readings
     let bad_accel = Vector3::new(2.0, 2.0, 1.0);
     for _ in 0..20 {
-        ahrs.update(gyro, bad_accel, mag, 0.01);
+        ahrs.update(gyro, bad_accel, mag);
     }
 
     let states = ahrs.internal_states();
@@ -284,7 +284,7 @@ fn test_update_external_heading_c_parity() {
 
     // Complete initialization with external heading
     for _ in 0..400 {
-        ahrs.update_external_heading(gyro, accel, 45.0, 0.01);
+        ahrs.update_external_heading(gyro, accel, 45.0);
     }
 
     // Extract yaw - should converge toward 45°
@@ -315,7 +315,7 @@ fn test_set_heading_c_parity() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, accel, mag, 0.01);
+        ahrs.update(gyro, accel, mag);
     }
 
     // Add some roll and pitch
@@ -416,11 +416,11 @@ fn test_basic_fusion_convergence() {
 
     // Run for initialization period
     for _ in 0..400 {
-        ahrs.update(gyro, accel, mag, 0.01);
+        ahrs.update(gyro, accel, mag);
     }
 
     // Should no longer be initializing
-    assert!(!ahrs.flags().initialising);
+    assert!(!ahrs.flags().startup);
 
     // Quaternion should be near identity
     let q = ahrs.quaternion();
