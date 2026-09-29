@@ -94,13 +94,13 @@ impl fmt::Display for Convention {
 /// use fusion_ahrs::{AhrsSettings, Convention};
 ///
 /// let settings = AhrsSettings {
-///     sample_rate: 512.0,            // 512 Hz
 ///     convention: Convention::Enu,
 ///     gain: 0.25,                    // Lower gain for more stability
 ///     gyroscope_range: 1000.0,       // 1000 deg/s range
 ///     acceleration_rejection: 15.0,  // 15° threshold
 ///     magnetic_rejection: 30.0,      // 30° threshold
 ///     rejection_timeout: 2.0,        // 2 seconds
+///     ..Default::default()           // sample_rate stays at 100 Hz
 /// };
 /// ```
 #[derive(Debug, Clone, Copy)]
@@ -275,7 +275,7 @@ pub struct AhrsFlags {
 ///     sample_rate: 400.0,         // 400 Hz
 ///     stationary_threshold: 3.0,  // 3 deg/s motion threshold
 ///     stationary_period: 10.0,    // 10 s stationary before estimating
-///     cutoff_frequency: 0.02,     // C library value
+///     ..Default::default()        // cutoff_frequency stays at C's 0.02
 /// };
 /// ```
 #[derive(Debug, Clone, Copy)]

@@ -72,11 +72,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let settings = AhrsSettings {
         sample_rate: SAMPLE_RATE,     // Nominal sample rate
         convention: Convention::Nwu,  // North-West-Up coordinate system
-        gain: 0.5,                    // Moderate fusion gain
         gyroscope_range: 2000.0,      // 2000 deg/s overrange detection
         acceleration_rejection: 10.0, // 10° acceleration rejection threshold
         magnetic_rejection: 10.0,     // 10° magnetic rejection threshold
         rejection_timeout: 5.0,       // 5 seconds before recovery
+        ..Default::default()          // remaining settings at defaults
     };
     ahrs.set_settings(settings);
 

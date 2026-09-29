@@ -128,13 +128,12 @@ The AHRS algorithm settings are defined by the `AhrsSettings` struct:
 use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
 
 let settings = AhrsSettings {
-    sample_rate: 100.0,
     convention: Convention::Nwu,
-    gain: 0.5,
     gyroscope_range: 2000.0,
     acceleration_rejection: 10.0,
     magnetic_rejection: 10.0,
     rejection_timeout: 5.0,
+    ..Default::default() // sample_rate 100 Hz, gain 0.5
 };
 
 let mut ahrs = Ahrs::with_settings(settings);
@@ -353,7 +352,8 @@ cargo bench
 The crate follows [Semantic Versioning](https://semver.org/). From 1.0:
 
 - **Bug fixes**: fixes to the Rust port that don't change the API ship in patch releases, even when they change outputs; the changelog notes any output change.
-- **Upstream changes**: the crate tracks the [Fusion C library](https://github.com/xioTechnologies/Fusion). Upstream fixes that change outputs ship in minor releases; new upstream functions ship in minor releases. Upstream changes that add settings, state, or flag fields, add enum variants, or rename or remove anything ship in a new major release, since the public structs have public fields and the enums are exhaustive.
+- **Upstream changes**: the crate tracks the [Fusion C library](https://github.com/xioTechnologies/Fusion). Upstream fixes that change outputs, and upstream additions (new functions, settings, flags, state fields, or enum variants), ship in minor releases. Upstream changes that rename or remove items or change signatures ship in a new major release.
+- **New fields and variants**: `AhrsSettings`, `BiasSettings`, `AhrsFlags`, and `AhrsInternalStates` have public fields, and `Convention` and `RemapAlignment` are exhaustive enums, yet adding a field or variant is treated as a minor change. This is a deliberate exception to strict SemVer that keeps settings constructible as plain struct literals. To stay compatible, build settings with `..Default::default()` and use `..` when destructuring these structs. An exhaustive `match` on an enum can stop compiling when a variant is added; the changelog calls out every new field and variant.
 - **MSRV**: the minimum supported Rust version (currently 1.85) is raised only in a minor release, never a patch release, and each bump is noted in the changelog.
 - **nalgebra**: each supported nalgebra version has its own feature (`nalgebra-0_35`, …). New versions are added alongside existing ones in minor releases; removing one is a major change. A feature may require a newer Rust than the crate MSRV if nalgebra does.
 - **Numeric output**: results may change in the last bits between minor releases when parity with the C library improves; such changes are noted in the changelog.

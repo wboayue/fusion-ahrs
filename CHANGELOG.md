@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 First stable release. The public API is now covered by the stability policy in the README "Versioning" section. The only breaking change since 0.9 is the `calculate_heading` argument order.
 
 ### Added
-- README "Versioning" section describing the stability policy from 1.0: how upstream C changes, MSRV bumps, and nalgebra features are versioned.
+- README "Versioning" section describing the stability policy from 1.0: how upstream C changes, MSRV bumps, and nalgebra features are versioned. New settings, flag, and state fields and new enum variants are minor changes; construct settings with `..Default::default()` to stay compatible.
 - `no-std` and `no-std::no-alloc` crates.io categories.
 
 ### Changed
