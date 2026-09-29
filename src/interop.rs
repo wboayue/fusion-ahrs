@@ -17,7 +17,8 @@
 //! | [`Matrix`](crate::Matrix) | `Matrix3<f32>` |
 //!
 //! Converting a [`Quaternion`](crate::Quaternion) into `UnitQuaternion<f32>`
-//! normalises it; the other conversions copy components unchanged.
+//! normalises it (a zero quaternion gives NaN components); the other
+//! conversions copy components unchanged.
 //!
 //! ```
 //! # #[cfg(feature = "nalgebra-0_35")] {
@@ -74,7 +75,11 @@ macro_rules! nalgebra_conversions {
             }
         }
 
-        /// Normalises the quaternion.
+        /// Normalises the quaternion (reciprocal of the norm, as
+        /// [`Quaternion::normalize`](crate::Quaternion::normalize)), so a
+        /// round trip back to [`Quaternion`](crate::Quaternion) may change
+        /// the last bits of a nearly-unit input. A zero quaternion produces
+        /// NaN components, as nalgebra's own normalisation does.
         #[cfg_attr(docsrs, doc(cfg(feature = $feature)))]
         impl From<$crate::Quaternion> for $na::UnitQuaternion<f32> {
             #[inline]

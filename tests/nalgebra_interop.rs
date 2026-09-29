@@ -31,6 +31,33 @@ fn unit_quaternion_is_normalised() {
     assert_eq!(Quaternion::from(unit), Quaternion::IDENTITY);
 }
 
+/// Re-normalising a nearly-unit quaternion may change its last bits
+#[test]
+fn unit_quaternion_round_trip_within_tolerance() {
+    for euler in [
+        Euler::new(10.0, 20.0, 30.0),
+        Euler::new(-170.0, 80.0, 170.0),
+        Euler::new(0.5, -45.0, 90.0),
+    ] {
+        let q = Quaternion::from_euler(euler);
+        let back = Quaternion::from(UnitQuaternion::from(q));
+        let diff: [f32; 4] = (back + q * -1.0).into();
+        assert!(
+            diff.iter().all(|d| d.abs() < 1e-6),
+            "{euler:?}: {q:?} -> {back:?}"
+        );
+    }
+}
+
+/// Zero has no direction; matches nalgebra's own normalisation
+#[test]
+fn zero_quaternion_to_unit_is_nan() {
+    let unit: UnitQuaternion<f32> = Quaternion::new(0.0, 0.0, 0.0, 0.0).into();
+    assert!(unit.coords.iter().all(|c| c.is_nan()));
+    let theirs = UnitQuaternion::from_quaternion(NaQuaternion::new(0.0_f32, 0.0, 0.0, 0.0));
+    assert!(theirs.coords.iter().all(|c| c.is_nan()));
+}
+
 #[test]
 fn unit_quaternion_rotation_agrees() {
     let q = Quaternion::from_euler(Euler::new(15.0, -30.0, 45.0));

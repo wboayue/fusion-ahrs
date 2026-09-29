@@ -34,7 +34,7 @@ libm = "0.2"
 nalgebra_0_35 = { package = "nalgebra", version = "0.35", optional = true, default-features = false }
 
 [features]
-## Conversions between the crate math types and nalgebra 0.35 types
+# Conversions between the crate math types and nalgebra 0.35 types
 nalgebra-0_35 = ["dep:nalgebra_0_35"]
 
 [dev-dependencies]
