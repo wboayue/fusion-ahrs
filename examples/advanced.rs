@@ -14,8 +14,7 @@
 //!
 //! Run with: `cargo run --example advanced`
 
-use fusion_ahrs::{Ahrs, AhrsSettings, Convention, Offset, OffsetSettings};
-use nalgebra::Vector3;
+use fusion_ahrs::{Ahrs, AhrsSettings, Convention, Euler, Offset, OffsetSettings, Vector};
 use plotters::prelude::*;
 use serde::Deserialize;
 use std::error::Error;
@@ -102,9 +101,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for (i, data) in sensor_data.iter().enumerate() {
-        let mut gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
-        let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
-        let magnetometer = Vector3::new(data.mag_x, data.mag_y, data.mag_z);
+        let mut gyroscope = Vector::new(data.gyro_x, data.gyro_y, data.gyro_z);
+        let accelerometer = Vector::new(data.accel_x, data.accel_y, data.accel_z);
+        let magnetometer = Vector::new(data.mag_x, data.mag_y, data.mag_z);
 
         // Apply gyroscope offset correction for bias compensation
         // This automatically detects stationary periods and estimates bias
@@ -118,8 +117,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Extract orientation as Euler angles
         let quaternion = ahrs.quaternion();
-        let (roll, pitch, yaw) = quaternion.euler_angles();
-        euler_angles.push((roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees()));
+        let Euler { roll, pitch, yaw } = quaternion.to_euler();
+        euler_angles.push((roll, pitch, yaw));
 
         // Print progress and diagnostics
         if i % 1000 == 0 {
@@ -128,9 +127,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!(
                 "Sample {}: orientation=({:.1}°,{:.1}°,{:.1}°) startup={} accel_err={:.1}° mag_err={:.1}°",
                 i,
-                roll.to_degrees(),
-                pitch.to_degrees(),
-                yaw.to_degrees(),
+                roll,
+                pitch,
+                yaw,
                 flags.startup,
                 states.acceleration_error,
                 states.magnetic_error

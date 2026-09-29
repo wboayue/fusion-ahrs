@@ -1,7 +1,7 @@
 //! Gyroscope offset correction for the Fusion AHRS library
 
+use crate::math::Vector;
 use crate::types::OffsetSettings;
-use nalgebra::Vector3;
 
 /// Gyroscope offset correction structure
 ///
@@ -21,7 +21,7 @@ pub struct Offset {
     /// Current timer value (counts samples while stationary)
     timer: u32,
     /// Estimated gyroscope offset
-    gyroscope_offset: Vector3<f32>,
+    gyroscope_offset: Vector,
 }
 
 impl Offset {
@@ -53,7 +53,7 @@ impl Offset {
             timeout,
             threshold: settings.threshold,
             timer: 0,
-            gyroscope_offset: Vector3::zeros(),
+            gyroscope_offset: Vector::ZERO,
         }
     }
 
@@ -73,22 +73,22 @@ impl Offset {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::{Offset, OffsetSettings};
     ///
     /// let mut offset = Offset::new(OffsetSettings::default(), 100.0);
-    /// let gyro_raw = Vector3::new(0.1, 0.2, 0.3);
+    /// let gyro_raw = Vector::new(0.1, 0.2, 0.3);
     /// let gyro_corrected = offset.update(gyro_raw);
     /// ```
-    pub fn update(&mut self, gyroscope: Vector3<f32>) -> Vector3<f32> {
+    pub fn update(&mut self, gyroscope: impl Into<Vector>) -> Vector {
         // Step 1: Apply current offset correction
-        let corrected_gyroscope = gyroscope - self.gyroscope_offset;
+        let corrected_gyroscope = gyroscope.into() - self.gyroscope_offset;
 
         // Step 2: Check if gyroscope indicates stationary motion
         // All axes must be below threshold simultaneously
-        if corrected_gyroscope.x.abs() > self.threshold
-            || corrected_gyroscope.y.abs() > self.threshold
-            || corrected_gyroscope.z.abs() > self.threshold
+        if libm::fabsf(corrected_gyroscope.x) > self.threshold
+            || libm::fabsf(corrected_gyroscope.y) > self.threshold
+            || libm::fabsf(corrected_gyroscope.z) > self.threshold
         {
             // Motion detected - reset timer
             self.timer = 0;
@@ -113,7 +113,7 @@ impl Offset {
     ///
     /// # Returns
     /// Current gyroscope offset estimate in degrees per second
-    pub fn offset(&self) -> Vector3<f32> {
+    pub fn offset(&self) -> Vector {
         self.gyroscope_offset
     }
 
@@ -123,7 +123,7 @@ impl Offset {
     /// to its initial uncalibrated state.
     pub fn reset(&mut self) {
         self.timer = 0;
-        self.gyroscope_offset = Vector3::zeros();
+        self.gyroscope_offset = Vector::ZERO;
     }
 
     /// Check if the offset correction is actively estimating
@@ -180,7 +180,7 @@ mod tests {
         let offset = Offset::new(settings, sample_rate);
 
         // Check initial state
-        assert_eq!(offset.offset(), Vector3::zeros());
+        assert_eq!(offset.offset(), Vector::ZERO);
         assert!(!offset.is_active());
         assert_eq!(offset.timer(), 0);
 
@@ -198,7 +198,7 @@ mod tests {
         let mut offset = Offset::new(OffsetSettings::default(), 100.0);
 
         // Test stationary readings (below threshold)
-        let stationary_reading = Vector3::new(2.0, 1.0, 1.5); // All below 3.0 deg/s
+        let stationary_reading = Vector::new(2.0, 1.0, 1.5); // All below 3.0 deg/s
 
         // Should not be active initially
         assert!(!offset.is_active());
@@ -210,7 +210,7 @@ mod tests {
         assert_eq!(corrected, stationary_reading); // No offset yet
 
         // Test motion detection (above threshold)
-        let motion_reading = Vector3::new(5.0, 0.0, 0.0); // X exceeds 3.0 deg/s
+        let motion_reading = Vector::new(5.0, 0.0, 0.0); // X exceeds 3.0 deg/s
         offset.update(motion_reading);
 
         // Timer should reset
@@ -224,7 +224,7 @@ mod tests {
         let mut offset = Offset::new(OffsetSettings::default(), sample_rate);
 
         let timeout_samples = offset.timeout();
-        let stationary_reading = Vector3::new(0.1, 0.1, 0.1);
+        let stationary_reading = Vector::new(0.1, 0.1, 0.1);
 
         // Apply stationary readings up to timeout (but not including)
         for i in 0..timeout_samples {
@@ -242,7 +242,7 @@ mod tests {
 
         // Offset should now be updated (but still small due to low filter coefficient)
         let estimated_offset = offset.offset();
-        assert!(estimated_offset.magnitude() > 0.0);
+        assert!(estimated_offset.norm() > 0.0);
     }
 
     #[test]
@@ -251,7 +251,7 @@ mod tests {
         let mut offset = Offset::new(OffsetSettings::default(), sample_rate);
 
         // Simulate constant bias
-        let true_bias = Vector3::new(0.5, -0.3, 0.2);
+        let true_bias = Vector::new(0.5, -0.3, 0.2);
         let timeout_samples = offset.timeout();
 
         // First, reach timeout with stationary readings
@@ -268,11 +268,11 @@ mod tests {
 
         // Offset should converge toward the true bias
         let estimated_offset = offset.offset();
-        let error = (estimated_offset - true_bias).magnitude();
+        let error = (estimated_offset - true_bias).norm();
 
         // Should be reasonably close (within 50% due to very slow filter)
         // The filter is designed to be conservative and slow
-        assert!(error < true_bias.magnitude() * 0.5);
+        assert!(error < true_bias.norm() * 0.5);
     }
 
     #[test]
@@ -280,7 +280,7 @@ mod tests {
         let mut offset = Offset::new(OffsetSettings::default(), 100.0);
 
         // Manually set an offset to test correction
-        let test_offset = Vector3::new(1.0, 2.0, 3.0);
+        let test_offset = Vector::new(1.0, 2.0, 3.0);
 
         // Simulate the algorithm reaching steady state with this offset
         // (In real usage, this would happen through the update process)
@@ -289,12 +289,12 @@ mod tests {
         }
 
         // Now test that the offset is being applied
-        let raw_reading = Vector3::new(5.0, 6.0, 7.0);
+        let raw_reading = Vector::new(5.0, 6.0, 7.0);
         let corrected = offset.update(raw_reading);
 
         // Corrected reading should have offset subtracted
         let expected = raw_reading - offset.offset();
-        let error = (corrected - expected).magnitude();
+        let error = (corrected - expected).norm();
         assert!(error < 1e-6);
     }
 
@@ -303,7 +303,7 @@ mod tests {
         let mut offset = Offset::new(OffsetSettings::default(), 100.0);
 
         // Build up some state
-        let stationary_reading = Vector3::new(0.1, 0.1, 0.1);
+        let stationary_reading = Vector::new(0.1, 0.1, 0.1);
         for _ in 0..100 {
             offset.update(stationary_reading);
         }
@@ -314,7 +314,7 @@ mod tests {
         // Reset and verify clean state
         offset.reset();
         assert_eq!(offset.timer(), 0);
-        assert_eq!(offset.offset(), Vector3::zeros());
+        assert_eq!(offset.offset(), Vector::ZERO);
         assert!(!offset.is_active());
     }
 
@@ -340,9 +340,9 @@ mod tests {
         let threshold = offset.threshold();
 
         // Test readings right at threshold boundary
-        let at_threshold = Vector3::new(threshold, 0.0, 0.0);
-        let below_threshold = Vector3::new(threshold - 0.1, 0.0, 0.0);
-        let above_threshold = Vector3::new(threshold + 0.1, 0.0, 0.0);
+        let at_threshold = Vector::new(threshold, 0.0, 0.0);
+        let below_threshold = Vector::new(threshold - 0.1, 0.0, 0.0);
+        let above_threshold = Vector::new(threshold + 0.1, 0.0, 0.0);
 
         // Below threshold should increment timer
         offset.update(below_threshold);

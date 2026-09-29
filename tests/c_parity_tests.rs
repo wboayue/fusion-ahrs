@@ -3,8 +3,7 @@
 //! These tests were created to expose and verify fixes for parity issues
 //! between the Rust port and original C implementation.
 
-use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
-use nalgebra::{UnitQuaternion, Vector3};
+use fusion_ahrs::{Ahrs, AhrsSettings, Convention, Euler, Quaternion, Vector};
 
 /// Test half_magnetic calculation for NED convention
 /// C uses: x = -(x*y + w*z), y = 0.5 - w² - y², z = w*x - y*z
@@ -19,14 +18,14 @@ fn test_half_magnetic_ned_formula() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Set a specific quaternion for testing (45° rotation around Z)
-    let q = UnitQuaternion::from_euler_angles(0.0, 0.0, std::f32::consts::FRAC_PI_4);
+    let q = Quaternion::from_euler(Euler::new(0.0, 0.0, 45.0));
     ahrs.set_quaternion(q);
 
     // Get quaternion components
     let qw = q.w;
-    let qx = q.i;
-    let qy = q.j;
-    let qz = q.k;
+    let qx = q.x;
+    let qy = q.y;
+    let qz = q.z;
 
     // Expected half_magnetic for NED (from C implementation):
     // x = -1.0 * (qx * qy + qw * qz)
@@ -37,9 +36,9 @@ fn test_half_magnetic_ned_formula() {
     let expected_z = qw * qx - qy * qz;
 
     // Update with magnetometer to trigger half_magnetic calculation
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, -1.0); // NED gravity
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, -1.0); // NED gravity
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     // Store quaternion before update
     let q_before = ahrs.quaternion();
@@ -62,7 +61,9 @@ fn test_half_magnetic_ned_formula() {
 
     // Quaternion should not have drifted significantly
     let q_after = ahrs.quaternion();
-    let angle_diff = q_before.angle_to(&q_after).to_degrees();
+    // Angle between orientations: 2 * acos(|q_before · q_after|)
+    let dot = q_before.hadamard(q_after).sum().abs().min(1.0);
+    let angle_diff = (2.0 * dot.acos()).to_degrees();
     assert!(
         angle_diff < 5.0,
         "Quaternion drifted too much: {}° - half_magnetic formula may be wrong",
@@ -81,9 +82,9 @@ fn test_linear_acceleration_ned_convention() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Complete initialization
-    let gyro = Vector3::zeros();
-    let accel_ned = Vector3::new(0.0, 0.0, -1.0); // NED: gravity = +Z, so measured accel = -Z
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel_ned = Vector::new(0.0, 0.0, -1.0); // NED: gravity = +Z, so measured accel = -Z
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, accel_ned, mag);
@@ -95,7 +96,7 @@ fn test_linear_acceleration_ned_convention() {
     // - Linear acceleration should be (0, 0, 0) for stationary
 
     let linear_accel = ahrs.linear_acceleration();
-    let magnitude = linear_accel.magnitude();
+    let magnitude = linear_accel.norm();
 
     println!("NED linear_acceleration: {:?}", linear_accel);
     println!("Magnitude: {}", magnitude);
@@ -117,16 +118,16 @@ fn test_linear_acceleration_nwu_convention() {
     };
     let mut ahrs = Ahrs::with_settings(settings);
 
-    let gyro = Vector3::zeros();
-    let accel_nwu = Vector3::new(0.0, 0.0, 1.0); // NWU: gravity = -Z, measured accel = +Z
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel_nwu = Vector::new(0.0, 0.0, 1.0); // NWU: gravity = -Z, measured accel = +Z
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, accel_nwu, mag);
     }
 
     let linear_accel = ahrs.linear_acceleration();
-    let magnitude = linear_accel.magnitude();
+    let magnitude = linear_accel.norm();
 
     println!("NWU linear_acceleration: {:?}", linear_accel);
 
@@ -153,16 +154,16 @@ fn test_flags_recovery_comparison() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Complete initialization
-    let gyro = Vector3::zeros();
-    let good_accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let good_accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, good_accel, mag);
     }
 
     // Now apply a few bad readings to increment trigger (but not exceed timeout)
-    let bad_accel = Vector3::new(2.0, 2.0, 1.0);
+    let bad_accel = Vector::new(2.0, 2.0, 1.0);
     for _ in 0..50 {
         ahrs.update(gyro, bad_accel, mag);
     }
@@ -240,16 +241,16 @@ fn test_internal_states_normalized_trigger() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Complete initialization
-    let gyro = Vector3::zeros();
-    let good_accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let good_accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, good_accel, mag);
     }
 
     // Apply some bad readings
-    let bad_accel = Vector3::new(2.0, 2.0, 1.0);
+    let bad_accel = Vector::new(2.0, 2.0, 1.0);
     for _ in 0..20 {
         ahrs.update(gyro, bad_accel, mag);
     }
@@ -279,8 +280,8 @@ fn test_update_external_heading_c_parity() {
     let mut ahrs = Ahrs::new();
 
     // Initialize with known orientation
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
 
     // Complete initialization with external heading
     for _ in 0..400 {
@@ -288,8 +289,8 @@ fn test_update_external_heading_c_parity() {
     }
 
     // Extract yaw - should converge toward 45°
-    let (_, _, yaw) = ahrs.quaternion().euler_angles();
-    let yaw_deg = yaw.to_degrees();
+    let yaw = ahrs.quaternion().to_euler().yaw;
+    let yaw_deg = yaw;
 
     println!("External heading test - target: 45°, actual: {}°", yaw_deg);
 
@@ -310,45 +311,53 @@ fn test_set_heading_c_parity() {
     let mut ahrs = Ahrs::new();
 
     // Initialize
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, accel, mag);
     }
 
     // Add some roll and pitch
-    let tilted_q = UnitQuaternion::from_euler_angles(0.2, 0.3, 0.0); // ~11° roll, ~17° pitch
+    let tilted_q = Quaternion::from_euler(Euler::new(11.5, 17.2, 0.0));
     ahrs.set_quaternion(tilted_q);
 
-    let (roll_before, pitch_before, _) = ahrs.quaternion().euler_angles();
+    let Euler {
+        roll: roll_before,
+        pitch: pitch_before,
+        yaw: _,
+    } = ahrs.quaternion().to_euler();
 
     // Set heading to 90°
     ahrs.set_heading(90.0);
 
-    let (roll_after, pitch_after, yaw_after) = ahrs.quaternion().euler_angles();
+    let Euler {
+        roll: roll_after,
+        pitch: pitch_after,
+        yaw: yaw_after,
+    } = ahrs.quaternion().to_euler();
 
     println!("Roll before: {}, after: {}", roll_before, roll_after);
     println!("Pitch before: {}, after: {}", pitch_before, pitch_after);
-    println!("Yaw after: {}°", yaw_after.to_degrees());
+    println!("Yaw after: {}°", yaw_after);
 
     // Roll and pitch should be preserved
     assert!(
-        (roll_before - roll_after).abs() < 0.01,
+        (roll_before - roll_after).abs() < 0.57, // 0.01 rad
         "Roll changed: {} -> {}",
         roll_before,
         roll_after
     );
     assert!(
-        (pitch_before - pitch_after).abs() < 0.01,
+        (pitch_before - pitch_after).abs() < 0.57, // 0.01 rad
         "Pitch changed: {} -> {}",
         pitch_before,
         pitch_after
     );
 
     // Yaw should be ~90°
-    let yaw_deg = yaw_after.to_degrees();
+    let yaw_deg = yaw_after;
     assert!(
         (yaw_deg - 90.0).abs() < 5.0,
         "Yaw should be ~90°, got {}°",
@@ -372,10 +381,10 @@ fn test_gravity_all_conventions() {
 
         // Gravity should be unit vector
         assert!(
-            (gravity.magnitude() - 1.0).abs() < 1e-5,
+            (gravity.norm() - 1.0).abs() < 1e-5,
             "{:?}: Gravity magnitude should be 1.0, got {}",
             convention,
-            gravity.magnitude()
+            gravity.norm()
         );
 
         // Check direction based on convention
@@ -410,9 +419,9 @@ fn test_basic_fusion_convergence() {
     let mut ahrs = Ahrs::new();
 
     // Simulate stationary sensor with gravity up and north magnetic field
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     // Run for initialization period
     for _ in 0..400 {
@@ -431,20 +440,20 @@ fn test_basic_fusion_convergence() {
     );
 
     // Euler angles should be near zero
-    let (roll, pitch, yaw) = q.euler_angles();
+    let Euler { roll, pitch, yaw } = q.to_euler();
     assert!(
-        roll.abs() < 0.1,
+        roll.abs() < 5.7, // 0.1 rad
         "Roll should be near 0, got {}",
-        roll.to_degrees()
+        roll
     );
     assert!(
-        pitch.abs() < 0.1,
+        pitch.abs() < 5.7, // 0.1 rad
         "Pitch should be near 0, got {}",
-        pitch.to_degrees()
+        pitch
     );
     assert!(
-        yaw.abs() < 0.1,
+        yaw.abs() < 5.7, // 0.1 rad
         "Yaw should be near 0, got {}",
-        yaw.to_degrees()
+        yaw
     );
 }

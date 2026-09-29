@@ -58,6 +58,7 @@ impl Matrix {
     /// assert_eq!(m.xy, 2.0);
     /// assert_eq!(m.yx, 4.0);
     /// ```
+    #[inline]
     pub const fn from_rows(rows: [[f32; 3]; 3]) -> Self {
         let [[xx, xy, xz], [yx, yy, yz], [zx, zy, zz]] = rows;
         Self {
@@ -82,6 +83,7 @@ impl Matrix {
     /// let rows = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]];
     /// assert_eq!(Matrix::from_rows(rows).to_rows(), rows);
     /// ```
+    #[inline]
     pub const fn to_rows(self) -> [[f32; 3]; 3] {
         [
             [self.xx, self.xy, self.xz],
@@ -99,6 +101,7 @@ impl Matrix {
     /// let m = Matrix::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
     /// assert_eq!(m.transpose().xy, 4.0);
     /// ```
+    #[inline]
     pub fn transpose(self) -> Matrix {
         Matrix::from_rows([
             [self.xx, self.yx, self.zx],
@@ -109,6 +112,7 @@ impl Matrix {
 }
 
 impl Default for Matrix {
+    #[inline]
     fn default() -> Self {
         Matrix::IDENTITY
     }
@@ -118,6 +122,7 @@ impl Default for Matrix {
 impl Mul<f32> for Matrix {
     type Output = Matrix;
 
+    #[inline]
     fn mul(self, s: f32) -> Matrix {
         let m = self;
         Matrix {
@@ -138,6 +143,7 @@ impl Mul<f32> for Matrix {
 impl Mul<Vector> for Matrix {
     type Output = Vector;
 
+    #[inline]
     fn mul(self, v: Vector) -> Vector {
         let m = self;
         Vector::new(
@@ -149,12 +155,14 @@ impl Mul<Vector> for Matrix {
 }
 
 impl From<[[f32; 3]; 3]> for Matrix {
+    #[inline]
     fn from(rows: [[f32; 3]; 3]) -> Self {
         Matrix::from_rows(rows)
     }
 }
 
 impl From<Matrix> for [[f32; 3]; 3] {
+    #[inline]
     fn from(m: Matrix) -> Self {
         m.to_rows()
     }

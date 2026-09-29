@@ -30,6 +30,7 @@ impl Euler {
     /// let euler = Euler::new(10.0, 20.0, 30.0);
     /// assert_eq!(euler.yaw, 30.0);
     /// ```
+    #[inline]
     pub const fn new(roll: f32, pitch: f32, yaw: f32) -> Self {
         Self { roll, pitch, yaw }
     }

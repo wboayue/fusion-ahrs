@@ -27,16 +27,15 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use nalgebra::Vector3;
-//! use fusion_ahrs::{Ahrs, AhrsSettings};
+//! use fusion_ahrs::{Ahrs, Vector};
 //!
 //! // Default settings: 100 Hz sample rate
 //! let mut ahrs = Ahrs::new();
 //!
 //! // Sensor readings
-//! let gyroscope = Vector3::new(0.1, 0.2, 0.3);      // deg/s
-//! let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
-//! let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // µT
+//! let gyroscope = Vector::new(0.1, 0.2, 0.3);      // deg/s
+//! let accelerometer = Vector::new(0.0, 0.0, 1.0);  // g
+//! let magnetometer = Vector::new(1.0, 0.0, 0.0);   // µT
 //!
 //! // Update AHRS once per sample
 //! ahrs.update(gyroscope, accelerometer, magnetometer);
@@ -44,8 +43,9 @@
 //! // Get orientation
 //! let quaternion = ahrs.quaternion();
 //!
-//! // Convert to Euler angles (roll, pitch, yaw)
-//! let (roll, pitch, yaw) = quaternion.euler_angles();
+//! // Convert to Euler angles in degrees
+//! let euler = quaternion.to_euler();
+//! println!("roll {:.1}°, pitch {:.1}°, yaw {:.1}°", euler.roll, euler.pitch, euler.yaw);
 //! ```
 //!
 //! For more documentation and examples, see: <https://github.com/wboayue/fusion-ahrs>
@@ -63,8 +63,6 @@ pub use ahrs::Ahrs;
 pub use axes::{AxesAlignment, axes_swap};
 pub use calibration::{calibrate_inertial, calibrate_magnetic};
 pub use compass::calculate_heading;
-pub use math::{
-    DEG_TO_RAD, Euler, Matrix, Quaternion, QuaternionExt, RAD_TO_DEG, Vector, Vector3Ext,
-};
+pub use math::{DEG_TO_RAD, Euler, Matrix, Quaternion, RAD_TO_DEG, Vector};
 pub use offset::Offset;
 pub use types::*;

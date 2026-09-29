@@ -9,11 +9,10 @@
 //! contraction; remaining differences are float rounding.
 
 use fusion_ahrs::{
-    Ahrs, AhrsSettings, AxesAlignment, Convention, Offset, OffsetSettings, axes_swap,
-    calculate_heading, calibrate_inertial, calibrate_magnetic,
+    Ahrs, AhrsSettings, AxesAlignment, Convention, Euler, Matrix, Offset, OffsetSettings,
+    Quaternion, Vector, axes_swap, calculate_heading, calibrate_inertial, calibrate_magnetic,
 };
 use fusion_c_sys as c;
-use nalgebra::{Matrix3, UnitQuaternion, Vector3};
 use serde::Deserialize;
 use std::sync::LazyLock;
 
@@ -44,16 +43,16 @@ struct SensorData {
 const SAMPLE_RATE: f32 = 100.0; // 100 Hz
 
 impl SensorData {
-    fn gyroscope(&self) -> Vector3<f32> {
-        Vector3::new(self.gyro_x, self.gyro_y, self.gyro_z)
+    fn gyroscope(&self) -> Vector {
+        Vector::new(self.gyro_x, self.gyro_y, self.gyro_z)
     }
 
-    fn accelerometer(&self) -> Vector3<f32> {
-        Vector3::new(self.accel_x, self.accel_y, self.accel_z)
+    fn accelerometer(&self) -> Vector {
+        Vector::new(self.accel_x, self.accel_y, self.accel_z)
     }
 
-    fn magnetometer(&self) -> Vector3<f32> {
-        Vector3::new(self.mag_x, self.mag_y, self.mag_z)
+    fn magnetometer(&self) -> Vector {
+        Vector::new(self.mag_x, self.mag_y, self.mag_z)
     }
 }
 
@@ -92,12 +91,13 @@ fn c_settings(settings: &AhrsSettings) -> c::AhrsSettings {
     }
 }
 
-fn arr(v: Vector3<f32>) -> [f32; 3] {
+fn arr(v: Vector) -> [f32; 3] {
     [v.x, v.y, v.z]
 }
 
-fn assert_vector(context: &str, name: &str, rust: Vector3<f32>, c: [f32; 3], tolerance: f32) {
-    let diff = (rust - Vector3::from(c)).amax();
+fn assert_vector(context: &str, name: &str, rust: Vector, c: [f32; 3], tolerance: f32) {
+    let d = rust - Vector::from(c);
+    let diff = d.x.abs().max(d.y.abs()).max(d.z.abs());
     assert!(
         diff <= tolerance,
         "{context}: {name} differs by {diff:e} (rust {rust:?}, c {c:?})"
@@ -117,7 +117,7 @@ fn assert_ahrs_matches(context: &str, rust: &Ahrs, c: &c::Ahrs) {
     let out = c.outputs();
 
     let q = rust.quaternion();
-    let q = [q.w, q.i, q.j, q.k];
+    let q = [q.w, q.x, q.y, q.z];
     let diff = q
         .iter()
         .zip(out.quaternion)
@@ -374,9 +374,9 @@ fn c_ahrs_state_changes() {
             c.set_heading(45.0);
         }
         4000 => {
-            let q = UnitQuaternion::from_euler_angles(0.3_f32, -0.2, 1.0);
+            let q = Quaternion::from_euler(Euler::new(17.2, -11.5, 57.3));
             rust.set_quaternion(q);
-            c.set_quaternion([q.w, q.i, q.j, q.k]);
+            c.set_quaternion([q.w, q.x, q.y, q.z]);
         }
         6000 => {
             let new = AhrsSettings {
@@ -440,7 +440,7 @@ fn c_compass_heading() {
 /// C enum order differs from Rust; alignments are matched by name
 #[test]
 fn c_remap_all_alignments() {
-    let sensor = Vector3::new(1.0, 2.0, 3.0);
+    let sensor = Vector::new(1.0, 2.0, 3.0);
 
     for index in 0..24 {
         let name = c::remap_alignment_to_string(index);
@@ -485,18 +485,26 @@ fn c_calibration_models() {
         let offset = [next(), next(), next()];
 
         let rust = calibrate_inertial(
-            Vector3::from(uncalibrated),
-            Matrix3::from_row_slice(&matrix),
-            Vector3::from(sensitivity),
-            Vector3::from(offset),
+            Vector::from(uncalibrated),
+            Matrix::from_rows([
+                [matrix[0], matrix[1], matrix[2]],
+                [matrix[3], matrix[4], matrix[5]],
+                [matrix[6], matrix[7], matrix[8]],
+            ]),
+            Vector::from(sensitivity),
+            Vector::from(offset),
         );
         let c = c::model_inertial(uncalibrated, matrix, sensitivity, offset);
         assert_vector(&format!("sample {i}"), "inertial", rust, c, 1e-5);
 
         let rust = calibrate_magnetic(
-            Vector3::from(uncalibrated),
-            Matrix3::from_row_slice(&matrix),
-            Vector3::from(offset),
+            Vector::from(uncalibrated),
+            Matrix::from_rows([
+                [matrix[0], matrix[1], matrix[2]],
+                [matrix[3], matrix[4], matrix[5]],
+                [matrix[6], matrix[7], matrix[8]],
+            ]),
+            Vector::from(offset),
         );
         let c = c::model_magnetic(uncalibrated, matrix, offset);
         assert_vector(&format!("sample {i}"), "magnetic", rust, c, 1e-5);
@@ -519,11 +527,19 @@ fn test_update_method_consistency() {
     assert!(!ahrs_full.flags().startup);
     assert!(!ahrs_no_mag.flags().startup);
 
-    let (roll_full, pitch_full, _) = ahrs_full.quaternion().euler_angles();
-    let (roll_no_mag, pitch_no_mag, yaw_no_mag) = ahrs_no_mag.quaternion().euler_angles();
+    let Euler {
+        roll: roll_full,
+        pitch: pitch_full,
+        yaw: _,
+    } = ahrs_full.quaternion().to_euler();
+    let Euler {
+        roll: roll_no_mag,
+        pitch: pitch_no_mag,
+        yaw: yaw_no_mag,
+    } = ahrs_no_mag.quaternion().to_euler();
 
-    let roll_diff = (roll_full - roll_no_mag).abs().to_degrees();
-    let pitch_diff = (pitch_full - pitch_no_mag).abs().to_degrees();
+    let roll_diff = (roll_full - roll_no_mag).abs();
+    let pitch_diff = (pitch_full - pitch_no_mag).abs();
     assert!(
         roll_diff < 10.0,
         "Roll difference too large: {roll_diff} deg"
@@ -533,9 +549,9 @@ fn test_update_method_consistency() {
         "Pitch difference too large: {pitch_diff} deg"
     );
     assert!(
-        yaw_no_mag.abs().to_degrees() < 5.0,
+        yaw_no_mag.abs() < 5.0,
         "No-mag heading should be near zero: {} deg",
-        yaw_no_mag.to_degrees()
+        yaw_no_mag
     );
 }
 
@@ -547,7 +563,7 @@ fn test_numerical_stability() {
     for (i, d) in SENSOR_DATA.iter().enumerate() {
         ahrs.update(d.gyroscope(), d.accelerometer(), d.magnetometer());
 
-        let norm = ahrs.quaternion().into_inner().norm();
+        let norm = ahrs.quaternion().norm();
         assert!(
             (norm - 1.0).abs() < 1e-5,
             "Quaternion not normalized at sample {i}: norm = {norm}"

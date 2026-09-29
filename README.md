@@ -16,7 +16,7 @@ Rust port of xioTechnologies' [Fusion AHRS C library](https://github.com/xioTech
 - **AHRS Algorithm**: Sensor fusion combining gyroscope, accelerometer, and magnetometer data
 - **Gyroscope Offset Correction**: Runtime calibration for temperature compensation
 - **Sensor Calibration**: Built-in calibration functions for all sensor types
-- **nalgebra Integration**: Leverages the robust nalgebra ecosystem for matrix operations
+- **Self-contained Math Types**: `Vector`, `Quaternion`, `Matrix`, and `Euler` mirror the C library, with no third-party types in the public API
 
 ## Installation
 
@@ -39,8 +39,7 @@ The algorithm calculates the orientation as the integration of the gyroscope sum
 ### Basic Example
 
 ```rust
-use fusion_ahrs::Ahrs;
-use nalgebra::Vector3;
+use fusion_ahrs::{Ahrs, Vector};
 
 // Option 1: default settings (100 Hz sample rate)
 let mut ahrs = Ahrs::new();
@@ -49,22 +48,19 @@ let mut ahrs = Ahrs::new();
 // let mut ahrs = Ahrs::with_settings(settings);
 
 // Sample sensor data
-let gyroscope = Vector3::new(0.0, 0.0, 0.0);      // deg/s
-let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
-let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // µT (or any units; will be normalized)
+let gyroscope = Vector::new(0.0, 0.0, 0.0);      // deg/s
+let accelerometer = Vector::new(0.0, 0.0, 1.0);  // g
+let magnetometer = Vector::new(1.0, 0.0, 0.0);   // µT (or any units; will be normalized)
 
 // Update algorithm once per sample at the configured sample rate
 ahrs.update(gyroscope, accelerometer, magnetometer);
 
-// Get orientation quaternion
-let quaternion = ahrs.quaternion();
-let (roll, pitch, yaw) = quaternion.euler_angles();
+// Inputs accept anything convertible into a Vector, such as arrays
+ahrs.update([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]);
 
-println!("Roll: {:.1}°, Pitch: {:.1}°, Yaw: {:.1}°",
-         roll.to_degrees(),
-         pitch.to_degrees(),
-         yaw.to_degrees()
-);
+// Get orientation as a quaternion or Euler angles in degrees
+let euler = ahrs.quaternion().to_euler();
+println!("Roll: {:.1}°, Pitch: {:.1}°, Yaw: {:.1}°", euler.roll, euler.pitch, euler.yaw);
 ```
 
 ### Sample Rate
@@ -72,11 +68,10 @@ println!("Roll: {:.1}°, Pitch: {:.1}°, Yaw: {:.1}°",
 The gyroscope is integrated over a fixed sample period of `1 / sample_rate`, set through `AhrsSettings::sample_rate`. If sample timing jitters, call `set_sample_period` with the measured period before each update:
 
 ```rust
-use fusion_ahrs::Ahrs;
-use nalgebra::Vector3;
+use fusion_ahrs::{Ahrs, Vector};
 
 let mut ahrs = Ahrs::new();
-let (gyroscope, accelerometer) = (Vector3::zeros(), Vector3::new(0.0, 0.0, 1.0));
+let (gyroscope, accelerometer) = (Vector::ZERO, Vector::new(0.0, 0.0, 1.0));
 
 let measured_period = 0.0102; // seconds since previous sample
 ahrs.set_sample_period(measured_period);
@@ -103,23 +98,22 @@ The magnetic rejection feature reduces the errors that result from temporary mag
 
 ### Algorithm Outputs
 
-The algorithm provides four outputs: quaternion, gravity, linear acceleration, and Earth acceleration. The quaternion describes the orientation of the sensor relative to the Earth. This can be converted to a rotation matrix using nalgebra's `to_rotation_matrix()` method or to Euler angles using the `euler_angles()` method. Gravity is a direction of gravity in the sensor coordinate frame. Linear acceleration is the accelerometer measurement with gravity removed. Earth acceleration is the accelerometer measurement in the Earth coordinate frame with gravity removed. The algorithm supports North-West-Up (NWU), East-North-Up (ENU), and North-East-Down (NED) axes conventions.
+The algorithm provides four outputs: quaternion, gravity, linear acceleration, and Earth acceleration. The quaternion describes the orientation of the sensor relative to the Earth. It can be converted to a rotation matrix with `to_matrix()` or to Euler angles in degrees with `to_euler()`. Gravity is a direction of gravity in the sensor coordinate frame. Linear acceleration is the accelerometer measurement with gravity removed. Earth acceleration is the accelerometer measurement in the Earth coordinate frame with gravity removed. The algorithm supports North-West-Up (NWU), East-North-Up (ENU), and North-East-Down (NED) axes conventions.
 
 ```rust
-use fusion_ahrs::Ahrs;
-use nalgebra::{Matrix3, Vector3, UnitQuaternion};
+use fusion_ahrs::{Ahrs, Euler, Matrix, Quaternion, Vector};
 
 let mut ahrs = Ahrs::new();
 
 // Get all algorithm outputs
-let quaternion: UnitQuaternion<f32> = ahrs.quaternion();
-let gravity: Vector3<f32> = ahrs.gravity();
-let linear_acceleration: Vector3<f32> = ahrs.linear_acceleration();
-let earth_acceleration: Vector3<f32> = ahrs.earth_acceleration();
+let quaternion: Quaternion = ahrs.quaternion();
+let gravity: Vector = ahrs.gravity();
+let linear_acceleration: Vector = ahrs.linear_acceleration();
+let earth_acceleration: Vector = ahrs.earth_acceleration();
 
-// Convert quaternion to different representations using nalgebra
-let rotation_matrix: Matrix3<f32> = quaternion.to_rotation_matrix().into_inner();
-let euler_angles = quaternion.euler_angles(); // (roll, pitch, yaw)
+// Convert the quaternion to other representations
+let rotation_matrix: Matrix = quaternion.to_matrix();
+let euler: Euler = quaternion.to_euler(); // roll, pitch, yaw in degrees
 ```
 
 ### Algorithm Settings
@@ -200,19 +194,18 @@ if flags.startup {
 The gyroscope offset correction algorithm provides run-time calibration of the gyroscope offset to compensate for variations in temperature and fine-tune existing offset calibration that may already be in place. This algorithm should be used in conjunction with the AHRS algorithm to achieve best performance.
 
 ```rust
-use fusion_ahrs::{Offset, OffsetSettings};
-use nalgebra::Vector3;
+use fusion_ahrs::{Offset, OffsetSettings, Vector};
 
 let settings = OffsetSettings::default();
 let sample_rate = 100.0; // Hz
 let mut offset = Offset::new(settings, sample_rate);
 
 // Apply offset correction — update() returns the corrected reading
-let gyroscope = Vector3::new(0.1, -0.05, 0.02); // Small offsets while stationary
-let corrected_gyroscope: Vector3<f32> = offset.update(gyroscope);
+let gyroscope = Vector::new(0.1, -0.05, 0.02); // Small offsets while stationary
+let corrected_gyroscope: Vector = offset.update(gyroscope);
 
 // Inspect the current offset estimate at any time
-let calculated_offset: Vector3<f32> = offset.offset();
+let calculated_offset: Vector = offset.offset();
 ```
 
 The algorithm calculates the gyroscope offset by detecting the stationary periods that occur naturally in most applications. Gyroscope measurements are sampled during these periods and low-pass filtered to obtain the gyroscope offset. The algorithm requires that gyroscope measurements do not exceed ±3 degrees per second while stationary. Basic gyroscope offset calibration may be necessary to ensure that the initial offset plus measurement noise is within these bounds.
@@ -226,13 +219,12 @@ Sensor calibration is essential for accurate measurements. This library provides
 The `calibrate_inertial` function applies gyroscope and accelerometer calibration parameters:
 
 ```rust
-use fusion_ahrs::calibrate_inertial;
-use nalgebra::{Matrix3, Vector3};
+use fusion_ahrs::{Matrix, Vector, calibrate_inertial};
 
-let uncalibrated = Vector3::new(1.0, 2.0, 3.0);
-let misalignment = Matrix3::identity();
-let sensitivity = Vector3::new(1.0, 1.0, 1.0);
-let offset = Vector3::new(0.1, 0.2, 0.3);
+let uncalibrated = Vector::new(1.0, 2.0, 3.0);
+let misalignment = Matrix::IDENTITY;
+let sensitivity = Vector::ONES;
+let offset = Vector::new(0.1, 0.2, 0.3);
 
 let calibrated = calibrate_inertial(uncalibrated, misalignment, sensitivity, offset);
 ```
@@ -250,12 +242,11 @@ Using the calibration model: **i**<sub>c</sub> = **Ms**(**i**<sub>u</sub> - **b*
 The `calibrate_magnetic` function applies magnetometer calibration parameters:
 
 ```rust
-use fusion_ahrs::calibrate_magnetic;
-use nalgebra::{Matrix3, Vector3};
+use fusion_ahrs::{Matrix, Vector, calibrate_magnetic};
 
-let uncalibrated = Vector3::new(0.5, 0.3, 0.8);
-let soft_iron_matrix = Matrix3::identity();
-let hard_iron_offset = Vector3::new(0.1, -0.2, 0.05);
+let uncalibrated = Vector::new(0.5, 0.3, 0.8);
+let soft_iron_matrix = Matrix::IDENTITY;
+let hard_iron_offset = Vector::new(0.1, -0.2, 0.05);
 
 let calibrated = calibrate_magnetic(uncalibrated, soft_iron_matrix, hard_iron_offset);
 ```
@@ -267,38 +258,32 @@ Using the calibration model: **m**<sub>c</sub> = **S**(**m**<sub>u</sub> - **h**
 - **S** is the soft iron matrix
 - **h** is the hard iron offset vector
 
-## nalgebra Integration
+## Math Types
 
-Fusion AHRS leverages the powerful nalgebra crate for all matrix and vector operations, providing:
+Sensor inputs and algorithm outputs use the crate's own `f32` math types, which mirror the C library's `FusionMath.h`:
 
-- **Type Safety**: Compile-time dimensional analysis prevents matrix dimension mismatches
-- **Performance**: SIMD-optimised vector and matrix operations where available
-- **Interoperability**: Seamless integration with the broader Rust scientific computing ecosystem
+| Type | Fields | Notes |
+|------|--------|-------|
+| `Vector` | `x, y, z` | Sensor readings and vector outputs |
+| `Quaternion` | `w, x, y, z` | Orientation; scalar first |
+| `Matrix` | `xx, xy, …, zz` | Row-major 3x3, used for calibration |
+| `Euler` | `roll, pitch, yaw` | Degrees, ZYX order |
 
-### Working with nalgebra Types
-
-All sensor inputs and algorithm outputs use standard nalgebra types:
+Their arithmetic follows the C library's operation order, so results match C when it is built with `FUSION_USE_NORMAL_SQRT` (the default C build uses a fast approximate inverse square root). Functions that take vectors accept anything convertible into a `Vector`, including `[f32; 3]`; quaternions convert from `[f32; 4]` (scalar first) and matrices from `[[f32; 3]; 3]` rows.
 
 ```rust
-use nalgebra::{Vector3, UnitQuaternion, Matrix3};
-use fusion_ahrs::Ahrs;
+use fusion_ahrs::{Euler, Quaternion, Vector, axes_swap, AxesAlignment};
 
-let ahrs = Ahrs::new();
+let v = Vector::new(1.0, 2.0, 3.0);
+let w: Vector = [4.0, 5.0, 6.0].into();
+assert_eq!(v.dot(w), 32.0);
 
-// All sensor data uses Vector3<f32>
-let gyro_data: Vector3<f32> = Vector3::new(0.1, 0.05, -0.02);
-let accel_data: Vector3<f32> = Vector3::new(0.0, 0.0, 9.81);
-let mag_data: Vector3<f32> = Vector3::new(0.3, 0.1, 0.8);
+let q = Quaternion::from_euler(Euler::new(0.0, 0.0, 90.0));
+let rotated = q.rotate(Vector::new(1.0, 0.0, 0.0)); // ≈ (0, 1, 0)
 
-// Quaternion outputs are UnitQuaternion<f32>
-let orientation: UnitQuaternion<f32> = ahrs.quaternion();
-
-// Easy conversion to other representations
-let rotation_matrix: Matrix3<f32> = orientation.to_rotation_matrix().into_inner();
-let axis_angle = orientation.axis_angle();
+let body = axes_swap([1.0, 2.0, 3.0], AxesAlignment::PyNxPz);
+assert_eq!(body, Vector::new(2.0, -1.0, 3.0));
 ```
-
-This integration allows you to easily combine Fusion AHRS with other nalgebra-based libraries in the Rust ecosystem for robotics, computer vision, and scientific computing applications.
 
 ## Examples
 

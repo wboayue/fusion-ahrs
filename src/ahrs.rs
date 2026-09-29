@@ -1,10 +1,7 @@
 //! Main AHRS algorithm implementation for the Fusion AHRS library
 
-use crate::math::{DEG_TO_RAD, Vector3Ext};
+use crate::math::{DEG_TO_RAD, Quaternion, RAD_TO_DEG, Vector, arc_sin};
 use crate::types::{AhrsFlags, AhrsInternalStates, AhrsSettings, Convention};
-#[allow(unused_imports)]
-use nalgebra::{ComplexField, RealField}; // Required for no_std float methods
-use nalgebra::{Quaternion, UnitQuaternion, Vector3};
 
 /// Initial gain used at the start of startup
 const INITIAL_STARTUP_GAIN: f32 = 10.0;
@@ -27,9 +24,9 @@ pub struct Ahrs {
     /// Values derived from the settings
     config: Config,
     /// Current orientation quaternion (WXYZ format)
-    quaternion: UnitQuaternion<f32>,
+    quaternion: Quaternion,
     /// Last accelerometer reading for linear acceleration calculation
-    accelerometer: Vector3<f32>,
+    accelerometer: Vector,
     /// Whether the algorithm is in startup
     startup: bool,
     /// Gain ramped down during startup
@@ -97,7 +94,7 @@ impl Config {
 #[derive(Debug, Clone, Copy)]
 struct Rejection {
     /// Residual between sensor and algorithm reference, scaled by 0.5
-    half_residual: Vector3<f32>,
+    half_residual: Vector,
     /// Recovery trigger in samples
     recovery_trigger: i32,
     /// Recovery threshold in samples
@@ -109,7 +106,7 @@ struct Rejection {
 impl Rejection {
     fn new(timeout: i32) -> Self {
         Self {
-            half_residual: Vector3::zeros(),
+            half_residual: Vector::ZERO,
             recovery_trigger: 0,
             recovery_threshold: timeout,
             ignored: false,
@@ -124,15 +121,15 @@ impl Rejection {
     /// Update with a new residual and return the feedback to apply, scaled by 0.5
     fn update(
         &mut self,
-        half_residual: Vector3<f32>,
+        half_residual: Vector,
         startup: bool,
         rejection: f32,
         timeout: i32,
-    ) -> Vector3<f32> {
+    ) -> Vector {
         self.half_residual = half_residual;
 
         // Don't ignore sensor if error below threshold
-        if startup || half_residual.magnitude_squared() <= rejection {
+        if startup || half_residual.norm_squared() <= rejection {
             self.ignored = false;
             self.recovery_trigger = self.recovery_trigger.saturating_sub(RECOVERY_DECREMENT);
         } else {
@@ -150,7 +147,7 @@ impl Rejection {
         self.recovery_trigger = clamp(self.recovery_trigger, 0, timeout);
 
         if self.ignored {
-            Vector3::zeros()
+            Vector::ZERO
         } else {
             self.half_residual
         }
@@ -163,11 +160,7 @@ impl Rejection {
 
     /// Error between sensor and algorithm reference in degrees
     fn error(&self) -> f32 {
-        // Clamp to valid asin range to match FusionArcSin
-        (2.0 * self.half_residual.magnitude())
-            .clamp(-1.0, 1.0)
-            .asin()
-            .to_degrees()
+        arc_sin(2.0 * self.half_residual.norm()) * RAD_TO_DEG
     }
 
     /// Recovery trigger as a fraction of the timeout
@@ -242,8 +235,8 @@ impl Ahrs {
         Ahrs {
             settings,
             config,
-            quaternion: UnitQuaternion::identity(),
-            accelerometer: Vector3::zeros(),
+            quaternion: Quaternion::IDENTITY,
+            accelerometer: Vector::ZERO,
             startup: true,
             startup_gain: INITIAL_STARTUP_GAIN,
             overrange_recovery: false,
@@ -271,8 +264,8 @@ impl Ahrs {
     /// assert!(ahrs.flags().startup);
     /// ```
     pub fn restart(&mut self) {
-        self.quaternion = UnitQuaternion::identity();
-        self.accelerometer = Vector3::zeros();
+        self.quaternion = Quaternion::IDENTITY;
+        self.accelerometer = Vector::ZERO;
 
         self.startup = true;
         self.startup_gain = INITIAL_STARTUP_GAIN;
@@ -304,11 +297,10 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::UnitQuaternion;
-    /// use fusion_ahrs::Ahrs;
+    /// use fusion_ahrs::{Ahrs, Euler, Quaternion};
     ///
     /// let mut ahrs = Ahrs::new();
-    /// ahrs.set_quaternion(UnitQuaternion::from_euler_angles(0.0, 0.0, 1.0));
+    /// ahrs.set_quaternion(Quaternion::from_euler(Euler::new(0.0, 0.0, 45.0)));
     /// ahrs.skip_startup();
     /// assert!(!ahrs.flags().startup);
     /// ```
@@ -375,12 +367,12 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::Ahrs;
     ///
     /// let mut ahrs = Ahrs::new(); // 100 Hz nominal
     /// ahrs.set_sample_period(0.0101); // measured timestamp delta
-    /// ahrs.update_no_magnetometer(Vector3::zeros(), Vector3::new(0.0, 0.0, 1.0));
+    /// ahrs.update_no_magnetometer(Vector::ZERO, Vector::new(0.0, 0.0, 1.0));
     /// ```
     pub fn set_sample_period(&mut self, sample_period: f32) {
         self.config.sample_period = sample_period;
@@ -406,15 +398,15 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::Ahrs;
     ///
     /// let mut ahrs = Ahrs::new(); // 100 Hz
     ///
     /// // Typical sensor readings
-    /// let gyro = Vector3::new(0.1, -0.2, 0.05);     // Small rotation rates
-    /// let accel = Vector3::new(0.0, 0.0, 1.0);      // Gravity pointing up (NWU)
-    /// let mag = Vector3::new(25.0, 2.0, -15.0);     // Earth's magnetic field
+    /// let gyro = Vector::new(0.1, -0.2, 0.05);     // Small rotation rates
+    /// let accel = Vector::new(0.0, 0.0, 1.0);      // Gravity pointing up (NWU)
+    /// let mag = Vector::new(25.0, 2.0, -15.0);     // Earth's magnetic field
     ///
     /// ahrs.update(gyro, accel, mag);
     ///
@@ -423,26 +415,13 @@ impl Ahrs {
     /// ```
     pub fn update(
         &mut self,
-        gyroscope: Vector3<f32>,
-        accelerometer: Vector3<f32>,
-        magnetometer: Vector3<f32>,
+        gyroscope: impl Into<Vector>,
+        accelerometer: impl Into<Vector>,
+        magnetometer: impl Into<Vector>,
     ) {
-        self.accelerometer = accelerometer;
-
-        self.overrange(gyroscope);
-
-        let gain = self.startup_gain();
-
-        let half_gyroscope = gyroscope * (DEG_TO_RAD * 0.5);
-
-        let half_gravity = self.calculate_half_gravity();
-
-        let half_feedback = self.half_inclination_feedback(half_gravity, accelerometer)
-            + self.half_heading_feedback(half_gravity, magnetometer);
-
-        let half_angular_rate = half_gyroscope + half_feedback * gain;
-
-        self.integrate_quaternion(half_angular_rate * self.config.sample_period);
+        // Generic shell over a non-generic body, so the algorithm is compiled
+        // (and inlined) in this crate rather than in each caller
+        self.update_vectors(gyroscope.into(), accelerometer.into(), magnetometer.into());
     }
 
     /// Update AHRS without magnetometer (gyroscope and accelerometer only)
@@ -458,26 +437,25 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::Ahrs;
     ///
     /// let mut ahrs = Ahrs::new();
     ///
-    /// let gyro = Vector3::new(0.1, -0.2, 0.05);
-    /// let accel = Vector3::new(0.0, 0.0, 1.0);
+    /// let gyro = Vector::new(0.1, -0.2, 0.05);
+    /// let accel = Vector::new(0.0, 0.0, 1.0);
     ///
     /// ahrs.update_no_magnetometer(gyro, accel);
     ///
     /// // Roll and pitch will be accurate, heading may drift
-    /// let euler = ahrs.quaternion().euler_angles();
+    /// let euler = ahrs.quaternion().to_euler();
     /// ```
-    pub fn update_no_magnetometer(&mut self, gyroscope: Vector3<f32>, accelerometer: Vector3<f32>) {
-        self.update(gyroscope, accelerometer, Vector3::zeros());
-
-        // Zero heading during startup
-        if self.startup {
-            self.set_heading(0.0);
-        }
+    pub fn update_no_magnetometer(
+        &mut self,
+        gyroscope: impl Into<Vector>,
+        accelerometer: impl Into<Vector>,
+    ) {
+        self.update_no_magnetometer_vectors(gyroscope.into(), accelerometer.into());
     }
 
     /// Update AHRS with external heading source
@@ -493,70 +471,50 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::Ahrs;
     ///
     /// let mut ahrs = Ahrs::new();
     ///
-    /// let gyro = Vector3::new(0.1, -0.2, 0.05);
-    /// let accel = Vector3::new(0.0, 0.0, 1.0);
+    /// let gyro = Vector::new(0.1, -0.2, 0.05);
+    /// let accel = Vector::new(0.0, 0.0, 1.0);
     /// let heading_from_gps = 45.0; // 45° (northeast)
     ///
     /// ahrs.update_external_heading(gyro, accel, heading_from_gps);
     /// ```
     pub fn update_external_heading(
         &mut self,
-        gyroscope: Vector3<f32>,
-        accelerometer: Vector3<f32>,
+        gyroscope: impl Into<Vector>,
+        accelerometer: impl Into<Vector>,
         heading: f32,
     ) {
-        // Calculate roll from quaternion
-        let q = self.quaternion.as_ref();
-        let qw = q.w;
-        let qx = q.i;
-        let qy = q.j;
-        let qz = q.k;
-
-        let roll = (qw * qx + qy * qz).atan2(0.5 - qy * qy - qx * qx);
-
-        // Calculate synthetic magnetometer from heading and roll
-        let heading_rad = heading * DEG_TO_RAD;
-        let sin_heading = heading_rad.sin();
-        let cos_heading = heading_rad.cos();
-        let sin_roll = roll.sin();
-        let cos_roll = roll.cos();
-
-        let magnetometer =
-            Vector3::new(cos_heading, -cos_roll * sin_heading, sin_heading * sin_roll);
-
-        // Update with synthetic magnetometer
-        self.update(gyroscope, accelerometer, magnetometer);
+        let magnetometer = self.heading_magnetometer(heading);
+        self.update_vectors(gyroscope.into(), accelerometer.into(), magnetometer);
     }
 
     /// Get current orientation quaternion
     ///
-    /// Returns the estimated device orientation as a unit quaternion.
-    /// The quaternion represents the rotation from the Earth frame
-    /// to the sensor frame according to the configured convention.
+    /// Returns the estimated orientation of the sensor relative to the Earth
+    /// frame (per the configured convention) as a unit quaternion.
     ///
     /// # Returns
     /// Unit quaternion representing device orientation (WXYZ format)
     ///
     /// # Example
     /// ```
-    /// use fusion_ahrs::Ahrs;
+    /// use fusion_ahrs::{Ahrs, Vector};
     ///
     /// let ahrs = Ahrs::new();
     /// let quaternion = ahrs.quaternion();
     ///
-    /// // Convert to Euler angles if needed
-    /// let (roll, pitch, yaw) = quaternion.euler_angles();
+    /// // Convert to Euler angles in degrees
+    /// let euler = quaternion.to_euler();
     ///
-    /// // Or use for transformations
-    /// let sensor_vector = nalgebra::Vector3::new(1.0, 0.0, 0.0);
-    /// let earth_vector = quaternion * sensor_vector;
+    /// // Or rotate a sensor-frame vector into the Earth frame
+    /// let earth_vector = quaternion.rotate(Vector::new(1.0, 0.0, 0.0));
+    /// assert_eq!(earth_vector, Vector::new(1.0, 0.0, 0.0));
     /// ```
-    pub fn quaternion(&self) -> UnitQuaternion<f32> {
+    pub fn quaternion(&self) -> Quaternion {
         self.quaternion
     }
 
@@ -570,19 +528,18 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::UnitQuaternion;
-    /// use fusion_ahrs::Ahrs;
+    /// use fusion_ahrs::{Ahrs, Euler, Quaternion};
     ///
     /// let mut ahrs = Ahrs::new();
     ///
     /// // Set to 45° rotation around Z-axis
-    /// let rotation = UnitQuaternion::from_euler_angles(0.0, 0.0, 45.0_f32.to_radians());
+    /// let rotation = Quaternion::from_euler(Euler::new(0.0, 0.0, 45.0));
     /// ahrs.set_quaternion(rotation);
     ///
     /// assert_eq!(ahrs.quaternion(), rotation);
     /// ```
-    pub fn set_quaternion(&mut self, quaternion: UnitQuaternion<f32>) {
-        self.quaternion = quaternion;
+    pub fn set_quaternion(&mut self, quaternion: impl Into<Quaternion>) {
+        self.quaternion = quaternion.into();
     }
 
     /// Get gravity vector in sensor frame
@@ -605,7 +562,7 @@ impl Ahrs {
     /// // When tilted, gravity will point in different directions
     /// println!("Gravity: {:?}", gravity);
     /// ```
-    pub fn gravity(&self) -> Vector3<f32> {
+    pub fn gravity(&self) -> Vector {
         self.calculate_half_gravity() * 2.0
     }
 
@@ -620,19 +577,19 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::Ahrs;
     ///
     /// let mut ahrs = Ahrs::new();
     ///
     /// // Simulate accelerometer reading with motion
-    /// let accel_with_motion = Vector3::new(0.5, 0.0, 1.0); // 0.5g lateral + gravity
-    /// ahrs.update_no_magnetometer(Vector3::zeros(), accel_with_motion);
+    /// let accel_with_motion = Vector::new(0.5, 0.0, 1.0); // 0.5g lateral + gravity
+    /// ahrs.update_no_magnetometer(Vector::ZERO, accel_with_motion);
     ///
     /// let linear_accel = ahrs.linear_acceleration();
     /// // Should show the 0.5g lateral acceleration
     /// ```
-    pub fn linear_acceleration(&self) -> Vector3<f32> {
+    pub fn linear_acceleration(&self) -> Vector {
         self.accelerometer - self.gravity()
     }
 
@@ -647,24 +604,24 @@ impl Ahrs {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::Ahrs;
     ///
     /// let mut ahrs = Ahrs::new();
     ///
     /// // Update with some motion
-    /// ahrs.update_no_magnetometer(Vector3::zeros(), Vector3::new(0.5, 0.0, 1.0));
+    /// ahrs.update_no_magnetometer(Vector::ZERO, Vector::new(0.5, 0.0, 1.0));
     ///
     /// let earth_accel = ahrs.earth_acceleration();
     /// // Acceleration now expressed in Earth coordinates
     /// ```
-    pub fn earth_acceleration(&self) -> Vector3<f32> {
-        let q = self.quaternion.as_ref();
-        let (qw, qx, qy, qz) = (q.w, q.i, q.j, q.k);
+    pub fn earth_acceleration(&self) -> Vector {
+        let q = self.quaternion;
+        let (qw, qx, qy, qz) = (q.w, q.x, q.y, q.z);
         let a = self.accelerometer;
 
         // Rotation matrix multiplied with the accelerometer
-        let mut acceleration = Vector3::new(
+        let mut acceleration = Vector::new(
             2.0 * ((qw * qw - 0.5 + qx * qx) * a.x
                 + (qx * qy - qw * qz) * a.y
                 + (qx * qz + qw * qy) * a.z),
@@ -764,33 +721,78 @@ impl Ahrs {
     /// // Set heading to face East (90°)
     /// ahrs.set_heading(90.0);
     ///
-    /// let (_, _, yaw) = ahrs.quaternion().euler_angles();
-    /// assert!((yaw.to_degrees() - 90.0).abs() < 1.0);
+    /// let yaw = ahrs.quaternion().to_euler().yaw;
+    /// assert!((yaw - 90.0).abs() < 1.0);
     /// ```
     pub fn set_heading(&mut self, heading: f32) {
-        let q = self.quaternion.as_ref();
-        let yaw = (q.w * q.k + q.i * q.j).atan2(0.5 - q.j * q.j - q.k * q.k);
+        let q = self.quaternion;
+        let yaw = libm::atan2f(q.w * q.z + q.x * q.y, 0.5 - q.y * q.y - q.z * q.z);
         let half_yaw_minus_heading = 0.5 * (yaw - heading * DEG_TO_RAD);
-        let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
-            half_yaw_minus_heading.cos(),
+        let rotation = Quaternion::new(
+            libm::cosf(half_yaw_minus_heading),
             0.0,
             0.0,
-            -half_yaw_minus_heading.sin(),
-        ));
+            -libm::sinf(half_yaw_minus_heading),
+        );
         self.quaternion = rotation * self.quaternion;
     }
 
     // Private helper methods
 
+    /// Non-generic body of [`Ahrs::update`]
+    fn update_vectors(&mut self, gyroscope: Vector, accelerometer: Vector, magnetometer: Vector) {
+        self.accelerometer = accelerometer;
+
+        self.overrange(gyroscope);
+
+        let gain = self.startup_gain();
+
+        let half_gyroscope = gyroscope * (DEG_TO_RAD * 0.5);
+
+        let half_gravity = self.calculate_half_gravity();
+
+        let half_feedback = self.half_inclination_feedback(half_gravity, accelerometer)
+            + self.half_heading_feedback(half_gravity, magnetometer);
+
+        let half_angular_rate = half_gyroscope + half_feedback * gain;
+
+        self.integrate_quaternion(half_angular_rate * self.config.sample_period);
+    }
+
+    /// Non-generic body of [`Ahrs::update_no_magnetometer`]
+    fn update_no_magnetometer_vectors(&mut self, gyroscope: Vector, accelerometer: Vector) {
+        self.update_vectors(gyroscope, accelerometer, Vector::ZERO);
+
+        // Zero heading during startup
+        if self.startup {
+            self.set_heading(0.0);
+        }
+    }
+
+    /// Magnetometer equivalent to an external heading in degrees
+    fn heading_magnetometer(&self, heading: f32) -> Vector {
+        let q = self.quaternion;
+        let roll = libm::atan2f(q.w * q.x + q.y * q.z, 0.5 - q.y * q.y - q.x * q.x);
+
+        let heading_radians = heading * DEG_TO_RAD;
+        let sin_heading = libm::sinf(heading_radians);
+        Vector::new(
+            libm::cosf(heading_radians),
+            -libm::cosf(roll) * sin_heading,
+            sin_heading * libm::sinf(roll),
+        )
+    }
+
     /// Trigger a soft restart if gyroscope overrange is detected
-    fn overrange(&mut self, gyroscope: Vector3<f32>) {
+    fn overrange(&mut self, gyroscope: Vector) {
         if !self.config.overrange_enabled {
             return;
         }
 
-        if gyroscope.x.abs() <= self.config.overrange_threshold
-            && gyroscope.y.abs() <= self.config.overrange_threshold
-            && gyroscope.z.abs() <= self.config.overrange_threshold
+        let threshold = self.config.overrange_threshold;
+        if libm::fabsf(gyroscope.x) <= threshold
+            && libm::fabsf(gyroscope.y) <= threshold
+            && libm::fabsf(gyroscope.z) <= threshold
         {
             return;
         }
@@ -829,17 +831,13 @@ impl Ahrs {
     }
 
     /// Return inclination feedback scaled by 0.5
-    fn half_inclination_feedback(
-        &mut self,
-        half_gravity: Vector3<f32>,
-        accelerometer: Vector3<f32>,
-    ) -> Vector3<f32> {
-        if accelerometer == Vector3::zeros() {
+    fn half_inclination_feedback(&mut self, half_gravity: Vector, accelerometer: Vector) -> Vector {
+        if accelerometer.is_zero() {
             self.acceleration.skip();
-            return Vector3::zeros();
+            return Vector::ZERO;
         }
 
-        let half_residual = residual(accelerometer.safe_normalize(), half_gravity);
+        let half_residual = residual(accelerometer.normalize(), half_gravity);
         self.acceleration.update(
             half_residual,
             self.startup,
@@ -849,23 +847,16 @@ impl Ahrs {
     }
 
     /// Return heading feedback scaled by 0.5
-    fn half_heading_feedback(
-        &mut self,
-        half_gravity: Vector3<f32>,
-        magnetometer: Vector3<f32>,
-    ) -> Vector3<f32> {
-        if magnetometer == Vector3::zeros() {
+    fn half_heading_feedback(&mut self, half_gravity: Vector, magnetometer: Vector) -> Vector {
+        if magnetometer.is_zero() {
             self.magnetic.skip();
-            return Vector3::zeros();
+            return Vector::ZERO;
         }
 
         // Direction of magnetic field indicated by algorithm
         let half_west = self.calculate_half_west();
 
-        let half_residual = residual(
-            half_gravity.cross(&magnetometer).safe_normalize(),
-            half_west,
-        );
+        let half_residual = residual(half_gravity.cross(magnetometer).normalize(), half_west);
         self.magnetic.update(
             half_residual,
             self.startup,
@@ -875,20 +866,21 @@ impl Ahrs {
     }
 
     /// Calculate half gravity vector in sensor frame based on current quaternion
-    fn calculate_half_gravity(&self) -> Vector3<f32> {
-        let q = self.quaternion.as_ref();
-        let qw = q.w;
-        let qx = q.i;
-        let qy = q.j;
-        let qz = q.k;
+    fn calculate_half_gravity(&self) -> Vector {
+        let Quaternion {
+            w: qw,
+            x: qx,
+            y: qy,
+            z: qz,
+        } = self.quaternion;
 
         match self.settings.convention {
-            Convention::Nwu | Convention::Enu => Vector3::new(
+            Convention::Nwu | Convention::Enu => Vector::new(
                 qx * qz - qw * qy,
                 qy * qz + qw * qx,
                 qw * qw - 0.5 + qz * qz,
             ),
-            Convention::Ned => Vector3::new(
+            Convention::Ned => Vector::new(
                 qw * qy - qx * qz,
                 -(qy * qz + qw * qx),
                 0.5 - qw * qw - qz * qz,
@@ -898,28 +890,29 @@ impl Ahrs {
 
     /// Calculate direction of west in sensor frame scaled by 0.5. The cross
     /// product of gravity and the magnetometer is west.
-    fn calculate_half_west(&self) -> Vector3<f32> {
-        let q = self.quaternion.as_ref();
-        let qw = q.w;
-        let qx = q.i;
-        let qy = q.j;
-        let qz = q.k;
+    fn calculate_half_west(&self) -> Vector {
+        let Quaternion {
+            w: qw,
+            x: qx,
+            y: qy,
+            z: qz,
+        } = self.quaternion;
 
         match self.settings.convention {
             // C: second column of transposed rotation matrix scaled by 0.5
-            Convention::Nwu => Vector3::new(
+            Convention::Nwu => Vector::new(
                 qx * qy + qw * qz,
                 qw * qw - 0.5 + qy * qy,
                 qy * qz - qw * qx,
             ),
             // C: first column of transposed rotation matrix scaled by -0.5
-            Convention::Enu => Vector3::new(
+            Convention::Enu => Vector::new(
                 0.5 - qw * qw - qx * qx,
                 qw * qz - qx * qy,
                 -(qx * qz + qw * qy),
             ),
             // C: second column of transposed rotation matrix scaled by -0.5
-            Convention::Ned => Vector3::new(
+            Convention::Ned => Vector::new(
                 -(qx * qy + qw * qz),
                 0.5 - qw * qw - qy * qy,
                 qw * qx - qy * qz,
@@ -928,12 +921,9 @@ impl Ahrs {
     }
 
     /// Integrate the quaternion by the half angular displacement
-    fn integrate_quaternion(&mut self, half_angular_displacement: Vector3<f32>) {
-        let q = self.quaternion.as_ref();
-        let quaternion = q + q * Quaternion::from_parts(0.0, half_angular_displacement);
-
-        // Normalise by reciprocal multiplication, as in C
-        self.quaternion = UnitQuaternion::new_unchecked(quaternion * (1.0 / quaternion.norm()));
+    fn integrate_quaternion(&mut self, half_angular_displacement: Vector) {
+        let q = self.quaternion;
+        self.quaternion = (q + q.vector_product(half_angular_displacement)).normalize();
     }
 }
 
@@ -942,7 +932,8 @@ fn rejection_threshold(degrees: f32) -> f32 {
     if degrees == 0.0 {
         f32::MAX
     } else {
-        (0.5 * (degrees * DEG_TO_RAD).sin()).powi(2)
+        let half_sin = 0.5 * libm::sinf(degrees * DEG_TO_RAD);
+        half_sin * half_sin
     }
 }
 
@@ -958,16 +949,16 @@ fn clamp(value: i32, min: i32, max: i32) -> i32 {
 }
 
 /// Residual between the sensor and reference vectors
-fn residual(sensor: Vector3<f32>, reference: Vector3<f32>) -> Vector3<f32> {
-    let cross = sensor.cross(&reference);
+fn residual(sensor: Vector, reference: Vector) -> Vector {
+    let cross = sensor.cross(reference);
 
     // Error is <90 degrees
-    if sensor.dot(&reference) > 0.0 {
+    if sensor.dot(reference) > 0.0 {
         return cross;
     }
 
-    // safe_normalize returns zero when sensor and reference are exactly opposite
-    cross.safe_normalize()
+    // normalize returns zero when sensor and reference are exactly opposite
+    cross.normalize()
 }
 
 impl Default for Ahrs {
@@ -983,7 +974,7 @@ mod tests {
     #[test]
     fn test_new_ahrs() {
         let ahrs = Ahrs::new();
-        assert_eq!(ahrs.quaternion(), UnitQuaternion::identity());
+        assert_eq!(ahrs.quaternion(), Quaternion::IDENTITY);
         assert!(ahrs.flags().startup);
     }
 
@@ -995,9 +986,9 @@ mod tests {
         assert!(ahrs.flags().startup);
 
         // Update for startup period to complete ramping
-        let gyro = Vector3::zeros();
-        let accel = Vector3::new(0.0, 0.0, 1.0);
-        let mag = Vector3::new(1.0, 0.0, 0.0);
+        let gyro = Vector::ZERO;
+        let accel = Vector::new(0.0, 0.0, 1.0);
+        let mag = Vector::new(1.0, 0.0, 0.0);
 
         // Simulate 4 seconds at 100Hz to complete startup
         for _ in 0..400 {
@@ -1014,7 +1005,7 @@ mod tests {
         let gravity = ahrs.gravity();
 
         // Should be unit vector pointing up in NWU convention
-        assert!((gravity.magnitude() - 1.0).abs() < 1e-6);
+        assert!((gravity.norm() - 1.0).abs() < 1e-6);
         assert!((gravity.z - 1.0).abs() < 1e-6);
     }
 
@@ -1027,9 +1018,9 @@ mod tests {
         let mut ahrs = Ahrs::with_settings(settings);
 
         // Complete initialization first
-        let normal_gyro = Vector3::zeros();
-        let accel = Vector3::new(0.0, 0.0, 1.0);
-        let mag = Vector3::new(1.0, 0.0, 0.0);
+        let normal_gyro = Vector::ZERO;
+        let accel = Vector::new(0.0, 0.0, 1.0);
+        let mag = Vector::new(1.0, 0.0, 0.0);
 
         for _ in 0..400 {
             ahrs.update(normal_gyro, accel, mag);
@@ -1037,7 +1028,7 @@ mod tests {
         assert!(!ahrs.flags().startup);
 
         // Now test overrange
-        let overflow_gyro = Vector3::new(600.0, 0.0, 0.0); // Exceeds 500 deg/s
+        let overflow_gyro = Vector::new(600.0, 0.0, 0.0); // Exceeds 500 deg/s
         ahrs.update(overflow_gyro, accel, mag);
 
         assert!(ahrs.flags().overrange_recovery);
@@ -1055,9 +1046,9 @@ mod tests {
         let mut ahrs = Ahrs::with_settings(settings);
 
         // Complete initialization first
-        let gyro = Vector3::zeros();
-        let normal_accel = Vector3::new(0.0, 0.0, 1.0); // Normal gravity
-        let mag = Vector3::new(1.0, 0.0, 0.0);
+        let gyro = Vector::ZERO;
+        let normal_accel = Vector::new(0.0, 0.0, 1.0); // Normal gravity
+        let mag = Vector::new(1.0, 0.0, 0.0);
 
         for _ in 0..400 {
             ahrs.update(gyro, normal_accel, mag);
@@ -1068,7 +1059,7 @@ mod tests {
         assert!(!states.accelerometer_ignored);
 
         // Apply large acceleration (should be rejected after enough samples)
-        let large_accel = Vector3::new(2.0, 2.0, 1.0); // Large acceleration indicating motion
+        let large_accel = Vector::new(2.0, 2.0, 1.0); // Large acceleration indicating motion
 
         // Apply bad readings repeatedly to eventually trigger rejection
         let mut rejected = false;
@@ -1096,15 +1087,15 @@ mod tests {
         assert!(!ahrs.flags().startup);
 
         // Configured gain applies immediately: 1 s of tilted accel converges slowly
-        let tilted = Vector3::new(0.0, 1.0, 0.0);
+        let tilted = Vector::new(0.0, 1.0, 0.0);
         for _ in 0..100 {
-            ahrs.update_no_magnetometer(Vector3::zeros(), tilted);
+            ahrs.update_no_magnetometer(Vector::ZERO, tilted);
         }
         let skipped = ahrs.gravity();
 
         let mut ahrs = Ahrs::new();
         for _ in 0..100 {
-            ahrs.update_no_magnetometer(Vector3::zeros(), tilted);
+            ahrs.update_no_magnetometer(Vector::ZERO, tilted);
         }
         // Startup gain converges faster than the configured gain
         assert!(ahrs.gravity().y > skipped.y);
@@ -1112,21 +1103,21 @@ mod tests {
 
     #[test]
     fn test_sample_period() {
-        let gyro = Vector3::new(0.0, 0.0, 90.0);
+        let gyro = Vector::new(0.0, 0.0, 90.0);
 
         let mut ahrs = Ahrs::new(); // 100 Hz
         ahrs.skip_startup();
-        ahrs.update(gyro, Vector3::zeros(), Vector3::zeros());
-        let (_, _, yaw_default) = ahrs.quaternion().euler_angles();
+        ahrs.update(gyro, Vector::ZERO, Vector::ZERO);
+        let yaw_default = ahrs.quaternion().to_euler().yaw;
 
         let mut ahrs = Ahrs::new();
         ahrs.skip_startup();
         ahrs.set_sample_period(0.02);
-        ahrs.update(gyro, Vector3::zeros(), Vector3::zeros());
-        let (_, _, yaw_doubled) = ahrs.quaternion().euler_angles();
+        ahrs.update(gyro, Vector::ZERO, Vector::ZERO);
+        let yaw_doubled = ahrs.quaternion().to_euler().yaw;
 
-        assert!((yaw_default.to_degrees() - 0.9).abs() < 1e-3);
-        assert!((yaw_doubled.to_degrees() - 1.8).abs() < 1e-3);
+        assert!((yaw_default - 0.9).abs() < 1e-3);
+        assert!((yaw_doubled - 1.8).abs() < 1e-3);
 
         // set_settings resets the sample period
         ahrs.set_settings(AhrsSettings {
@@ -1143,36 +1134,36 @@ mod tests {
             ..Default::default()
         };
         let mut ahrs = Ahrs::with_settings(settings);
-        let accel = Vector3::new(0.0, 0.5, 1.0);
-        ahrs.update_no_magnetometer(Vector3::zeros(), accel);
+        let accel = Vector::new(0.0, 0.5, 1.0);
+        ahrs.update_no_magnetometer(Vector::ZERO, accel);
 
         // Soft restart keeps the quaternion rather than resetting to identity,
         // and linear acceleration still reflects the latest accelerometer
-        ahrs.update_no_magnetometer(Vector3::new(600.0, 0.0, 0.0), accel);
+        ahrs.update_no_magnetometer(Vector::new(600.0, 0.0, 0.0), accel);
         assert!(ahrs.flags().overrange_recovery);
         assert!(ahrs.flags().startup);
-        assert_ne!(ahrs.quaternion(), UnitQuaternion::identity());
+        assert_ne!(ahrs.quaternion(), Quaternion::IDENTITY);
         assert_eq!(ahrs.linear_acceleration(), accel - ahrs.gravity());
     }
 
     #[test]
     fn test_residual_opposite_vectors() {
-        let sensor = Vector3::new(0.0, 0.0, 1.0);
-        let reference = Vector3::new(0.0, 0.0, -0.5);
+        let sensor = Vector::new(0.0, 0.0, 1.0);
+        let reference = Vector::new(0.0, 0.0, -0.5);
         let r = residual(sensor, reference);
-        assert_eq!(r, Vector3::zeros());
+        assert_eq!(r, Vector::ZERO);
 
         // Orthogonal vectors are normalised
-        let r = residual(Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.5, 0.0));
-        assert!((r.magnitude() - 1.0).abs() < 1e-6);
+        let r = residual(Vector::new(1.0, 0.0, 0.0), Vector::new(0.0, 0.5, 0.0));
+        assert!((r.norm() - 1.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_upside_down_start_no_nan() {
         let mut ahrs = Ahrs::new();
-        ahrs.update_no_magnetometer(Vector3::zeros(), Vector3::new(0.0, 0.0, -1.0));
+        ahrs.update_no_magnetometer(Vector::ZERO, Vector::new(0.0, 0.0, -1.0));
         let q = ahrs.quaternion();
-        assert!(q.w.is_finite() && q.i.is_finite() && q.j.is_finite() && q.k.is_finite());
+        assert!(q.w.is_finite() && q.x.is_finite() && q.y.is_finite() && q.z.is_finite());
     }
 
     #[test]
@@ -1180,7 +1171,7 @@ mod tests {
         let mut ahrs = Ahrs::new();
         ahrs.skip_startup();
         for _ in 0..1000 {
-            ahrs.update_no_magnetometer(Vector3::zeros(), Vector3::new(1.0, 1.0, 0.0));
+            ahrs.update_no_magnetometer(Vector::ZERO, Vector::new(1.0, 1.0, 0.0));
             assert!(!ahrs.internal_states().accelerometer_ignored);
         }
         assert_eq!(ahrs.internal_states().acceleration_recovery_trigger, 0.0);
@@ -1197,9 +1188,9 @@ mod tests {
         let mut ahrs = Ahrs::with_settings(settings);
         for _ in 0..10 {
             ahrs.update(
-                Vector3::zeros(),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 1.0, 0.0),
+                Vector::ZERO,
+                Vector::new(1.0, 0.0, 0.0),
+                Vector::new(0.0, 1.0, 0.0),
             );
         }
     }

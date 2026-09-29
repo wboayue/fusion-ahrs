@@ -17,8 +17,8 @@ cargo run --example advanced        # full 9-DOF with offset & diagnostics
 
 ## Architecture
 
-- **Input**: Gyroscope, accelerometer, magnetometer data as `nalgebra::Vector3<f32>`
-- **Output**: Orientation as `nalgebra::UnitQuaternion<f32>`
+- **Input**: Gyroscope, accelerometer, magnetometer data as `impl Into<Vector>` (crate type; `[f32; 3]` works)
+- **Output**: Orientation as `Quaternion`, vectors as `Vector` (crate types mirroring C `FusionMath.h`)
 - **Compatibility**: `#![no_std]` (edition 2024, MSRV 1.85)
 
 ### Source Layout
@@ -30,19 +30,20 @@ src/
   types.rs        – AhrsSettings, AhrsInternalStates, AhrsFlags, Convention, OffsetSettings
   offset.rs       – gyroscope offset correction
   calibration.rs  – calibrate_inertial(), calibrate_magnetic()
-  math/           – Vector, Quaternion, Matrix, Euler (mirror FusionMath.h); Vector3Ext / QuaternionExt nalgebra traits (to be removed)
+  math/           – Vector, Quaternion, Matrix, Euler (mirror FusionMath.h), DEG_TO_RAD / RAD_TO_DEG
   axes.rs         – sensor axes alignment (axes_swap, AxesAlignment)
   compass.rs      – tilt-compensated magnetic heading (calculate_heading)
 fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe FFI wrappers (publish = false)
 ```
 
 ### Dependencies
-- `nalgebra` — vector/matrix ops (no-std compatible, `libm` feature)
+- `libm` — `no_std` float functions (sqrt, trig); private, not part of the public API
 - Dev only: `csv`, `serde`, `plotters`, `criterion`, `rand`, `rand_pcg`, `fusion-c-sys` (path-only, stripped on publish)
 - C reference implementation in `fusion-c/` (git submodule — `git submodule update --init`)
 
 ### Project-Specific Conventions
-- Extend math behavior through the `Vector3Ext` / `QuaternionExt` traits in `math.rs` rather than free functions
+- Math operations are inherent methods on the `math/` types; port new C math functions there with C's exact operation order (C parity is checked bit for bit in `tests/c_math_test.rs`)
+- Public functions take `impl Into<Vector>` (etc.) and delegate to a private non-generic body, so the algorithm is compiled and inlined in this crate rather than in each caller. Small math ops carry `#[inline]`
 - Settings types (`AhrsSettings`, `OffsetSettings`) are plain structs constructed directly — no builders
 - All public APIs carry rustdoc with at least one example; doctests should compile
 
@@ -58,7 +59,8 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 
 ## Development Guidelines
 - Follow the C implementation's algorithm behavior exactly
-- Use nalgebra types consistently (`Vector3`, `UnitQuaternion`, `Matrix3`)
+- Use the crate math types (`Vector`, `Quaternion`, `Matrix`, `Euler`) consistently; no third-party types in the public API
+- In library code use `libm` for float functions (`libm::sqrtf`, `libm::fabsf`, …), since `no_std` on the MSRV lacks `f32` methods
 - Maintain embedded compatibility: `src/lib.rs` is `#![no_std]` unconditionally — do not introduce `std`-only dependencies or APIs
 - Most modules (`ahrs`, `axes`, `calibration`, `compass`, `math`, `offset`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
 - Commit messages follow conventional-commit style. Common prefixes: `feat(scope): …`, `fix(scope): …`, `docs: …`, `test: …`, `refactor: …`, `bench: …`, `chore(scope): …` (e.g. `chore(deps)`, `chore(cargo)`, `chore(parity)`). `fmt: …` is the project-specific prefix for pure `cargo fmt` commits
@@ -79,7 +81,7 @@ Keep `README.md` in sync with the code in the same PR that introduces the change
 - **Usage patterns**: if the recommended way to initialize or call something shifts (e.g. builder vs. direct struct, new required setting), rewrite the quickstart and any example snippets to match.
 - **Examples**: when `examples/` gains, loses, or renames a file, update the example list and any `cargo run --example …` invocations in the README.
 - **Features & conventions**: when adding/removing a coordinate convention, feature flag, or supported sensor mode, update the feature list and any compatibility notes.
-- **Dependencies & MSRV**: bumping `nalgebra`, the Rust edition, or MSRV requires updating the README's dependency snippet and any version callouts.
+- **Dependencies & MSRV**: bumping a public-facing dependency, the Rust edition, or MSRV requires updating the README's dependency snippet and any version callouts.
 - **Verify**: every code block in the README must compile against current `src/`. If unsure, copy the snippet into an example or doctest and run it.
 
 ## Changelog Maintenance

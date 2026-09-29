@@ -1,6 +1,5 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use fusion_ahrs::Ahrs;
-use nalgebra::Vector3;
+use fusion_ahrs::{Ahrs, Vector};
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 use std::f32::consts::PI;
@@ -8,7 +7,7 @@ use std::hint::black_box;
 
 // Pre-generated sensor data to eliminate RNG overhead during benchmarks
 struct PreGeneratedData {
-    samples: Vec<(Vector3<f32>, Vector3<f32>, Vector3<f32>)>,
+    samples: Vec<(Vector, Vector, Vector)>,
     index: usize,
 }
 
@@ -23,19 +22,19 @@ impl PreGeneratedData {
             // Generate realistic motion patterns without per-sample RNG overhead
             let motion_phase = time * 0.5 * 2.0 * PI;
 
-            let gyroscope = Vector3::new(
+            let gyroscope = Vector::new(
                 0.2 * motion_phase.sin() + rng.random_range(-0.01..0.01),
                 0.2 * (motion_phase * 1.3).cos() + rng.random_range(-0.01..0.01),
                 0.2 * (motion_phase * 0.7).sin() + rng.random_range(-0.01..0.01),
             );
 
-            let accelerometer = Vector3::new(
+            let accelerometer = Vector::new(
                 -0.1 * motion_phase.sin() + rng.random_range(-0.002..0.002),
                 0.1 * motion_phase.cos() + rng.random_range(-0.002..0.002),
                 1.0 + rng.random_range(-0.002..0.002),
             );
 
-            let magnetometer = Vector3::new(
+            let magnetometer = Vector::new(
                 0.6 + 0.05 * motion_phase.cos() + rng.random_range(-0.05..0.05),
                 0.05 * motion_phase.sin() + rng.random_range(-0.05..0.05),
                 -0.8 + rng.random_range(-0.05..0.05),
@@ -47,7 +46,7 @@ impl PreGeneratedData {
         Self { samples, index: 0 }
     }
 
-    fn next(&mut self) -> (Vector3<f32>, Vector3<f32>, Vector3<f32>) {
+    fn next(&mut self) -> (Vector, Vector, Vector) {
         let sample = self.samples[self.index];
         self.index = (self.index + 1) % self.samples.len();
         sample
