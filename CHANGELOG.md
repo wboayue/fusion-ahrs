@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Synced with upstream Fusion C `a8d7224` (2026-09-18). This release contains breaking API changes that mirror upstream.
+
+### Added
+- `AhrsSettings::sample_rate` (Hz, default 100). The gyroscope is integrated over `1 / sample_rate`.
+- `Ahrs::set_sample_period` to compensate for per-sample timing jitter.
+- `Ahrs::skip_startup` to skip the startup gain ramp when the initial orientation is already known.
+- `Ahrs::restart`, replacing `initialise`/`reset`.
+- `Convention::ALL` and `AxesAlignment::ALL` constants for iterating over every variant.
+- `Ahrs` now implements `Debug` and `Clone`.
+- `Display` and `as_str()` for `Convention` (e.g. `"North, West, Up (NWU)"`) and `AxesAlignment` (e.g. `"+Y-X+Z"`), matching upstream's to-string functions.
+
+### Changed
+- **Breaking:** `update`, `update_no_magnetometer`, and `update_external_heading` no longer take a `delta_time` argument. Set `sample_rate` in settings, and call `set_sample_period` before each update if timing varies.
+- **Breaking:** `AhrsSettings::recovery_trigger_period` (`u32`, samples) replaced by `rejection_timeout` (`f32`, seconds).
+- **Breaking:** `AhrsSettings::default()` now disables acceleration and magnetic rejection (`acceleration_rejection` and `magnetic_rejection` are `0.0`, previously `90.0`). Behavior is unchanged, since rejection was already disabled by the zero timeout.
+- **Breaking:** `AhrsFlags::initialising` renamed to `startup`; `AhrsFlags::angular_rate_recovery` renamed to `overrange_recovery`.
+- Vector and quaternion normalisation now multiply by the reciprocal of the norm, as the C library does. This affects `Vector3Ext::safe_normalize` and roughly halves the remaining numeric difference from C.
+- The startup gain ramp now steps once per update based on the configured sample rate, rather than on the per-call time step.
+
+### Deprecated
+- `Ahrs::initialise` and `Ahrs::reset`; use `Ahrs::restart`.
+
+### Fixed
+- Gyroscope overrange recovery now preserves the last accelerometer reading, so `linear_acceleration` and `earth_acceleration` remain valid during recovery.
+- The accelerometer/magnetometer residual is now normalised when the sensor and reference are exactly perpendicular, matching upstream.
+- `earth_acceleration` now uses the upstream formulation (rotated accelerometer minus gravity) for closer numeric parity.
+
 ## [0.7.0] - 2026-06-22
 
 ### Changed

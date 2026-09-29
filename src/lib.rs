@@ -30,6 +30,7 @@
 //! use nalgebra::Vector3;
 //! use fusion_ahrs::{Ahrs, AhrsSettings};
 //!
+//! // Default settings: 100 Hz sample rate
 //! let mut ahrs = Ahrs::new();
 //!
 //! // Sensor readings
@@ -37,8 +38,8 @@
 //! let accelerometer = Vector3::new(0.0, 0.0, 1.0);  // g
 //! let magnetometer = Vector3::new(1.0, 0.0, 0.0);   // µT
 //!
-//! // Update AHRS
-//! ahrs.update(gyroscope, accelerometer, magnetometer, 0.01); // 10ms
+//! // Update AHRS once per sample
+//! ahrs.update(gyroscope, accelerometer, magnetometer);
 //!
 //! // Get orientation
 //! let quaternion = ahrs.quaternion();

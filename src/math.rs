@@ -87,7 +87,8 @@ impl Vector3Ext for Vector3<f32> {
     fn safe_normalize(&self) -> Vector3<f32> {
         let mag = self.magnitude();
         if mag > 0.0 {
-            *self / mag
+            // Reciprocal multiplication, as in C
+            *self * (1.0 / mag)
         } else {
             Vector3::zeros()
         }

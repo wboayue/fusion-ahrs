@@ -19,6 +19,8 @@
 //! assert_eq!(body.z, 3.0);   // Body Z = Sensor Z
 //! ```
 
+use core::fmt;
+
 use nalgebra::Vector3;
 
 /// Axes alignment describing the sensor axes relative to the body axes.
@@ -104,6 +106,95 @@ pub enum AxesAlignment {
     NzNyNx,
     /// -Z+X-Y
     NzPxNy,
+}
+
+impl AxesAlignment {
+    /// All 24 alignments, in declaration order.
+    ///
+    /// # Example
+    /// ```
+    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::{AxesAlignment, axes_swap};
+    ///
+    /// // Find the alignment that maps sensor (1, 2, 3) onto body (3, 1, 2)
+    /// let sensor = Vector3::new(1.0, 2.0, 3.0);
+    /// let alignment = AxesAlignment::ALL
+    ///     .into_iter()
+    ///     .find(|&a| axes_swap(sensor, a) == Vector3::new(3.0, 1.0, 2.0))
+    ///     .unwrap();
+    /// assert_eq!(alignment.as_str(), "+Z+X+Y");
+    /// ```
+    pub const ALL: [AxesAlignment; 24] = [
+        AxesAlignment::PxPyPz,
+        AxesAlignment::PxNzPy,
+        AxesAlignment::PxNyNz,
+        AxesAlignment::PxPzNy,
+        AxesAlignment::NxPyNz,
+        AxesAlignment::NxPzPy,
+        AxesAlignment::NxNyPz,
+        AxesAlignment::NxNzNy,
+        AxesAlignment::PyNxPz,
+        AxesAlignment::PyNzNx,
+        AxesAlignment::PyPxNz,
+        AxesAlignment::PyPzPx,
+        AxesAlignment::NyPxPz,
+        AxesAlignment::NyNzPx,
+        AxesAlignment::NyNxNz,
+        AxesAlignment::NyPzNx,
+        AxesAlignment::PzPyNx,
+        AxesAlignment::PzPxPy,
+        AxesAlignment::PzNyPx,
+        AxesAlignment::PzNxNy,
+        AxesAlignment::NzPyPx,
+        AxesAlignment::NzNxPy,
+        AxesAlignment::NzNyNx,
+        AxesAlignment::NzPxNy,
+    ];
+
+    /// Returns the alignment as a string, e.g. `"+Y-X+Z"`, matching the C
+    /// library's `FusionRemapAlignmentToString`.
+    ///
+    /// # Example
+    /// ```
+    /// use fusion_ahrs::AxesAlignment;
+    ///
+    /// assert_eq!(AxesAlignment::PyNxPz.as_str(), "+Y-X+Z");
+    /// assert_eq!(AxesAlignment::PyNxPz.to_string(), "+Y-X+Z");
+    /// ```
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            AxesAlignment::PxPyPz => "+X+Y+Z",
+            AxesAlignment::PxNzPy => "+X-Z+Y",
+            AxesAlignment::PxNyNz => "+X-Y-Z",
+            AxesAlignment::PxPzNy => "+X+Z-Y",
+            AxesAlignment::NxPyNz => "-X+Y-Z",
+            AxesAlignment::NxPzPy => "-X+Z+Y",
+            AxesAlignment::NxNyPz => "-X-Y+Z",
+            AxesAlignment::NxNzNy => "-X-Z-Y",
+            AxesAlignment::PyNxPz => "+Y-X+Z",
+            AxesAlignment::PyNzNx => "+Y-Z-X",
+            AxesAlignment::PyPxNz => "+Y+X-Z",
+            AxesAlignment::PyPzPx => "+Y+Z+X",
+            AxesAlignment::NyPxPz => "-Y+X+Z",
+            AxesAlignment::NyNzPx => "-Y-Z+X",
+            AxesAlignment::NyNxNz => "-Y-X-Z",
+            AxesAlignment::NyPzNx => "-Y+Z-X",
+            AxesAlignment::PzPyNx => "+Z+Y-X",
+            AxesAlignment::PzPxPy => "+Z+X+Y",
+            AxesAlignment::PzNyPx => "+Z-Y+X",
+            AxesAlignment::PzNxNy => "+Z-X-Y",
+            AxesAlignment::NzPyPx => "-Z+Y+X",
+            AxesAlignment::NzNxPy => "-Z-X+Y",
+            AxesAlignment::NzNyNx => "-Z-Y-X",
+            AxesAlignment::NzPxNy => "-Z+X-Y",
+        }
+    }
+}
+
+impl fmt::Display for AxesAlignment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 /// Swaps sensor axes for alignment with the body axes.
@@ -301,5 +392,11 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_display() {
+        assert_eq!(AxesAlignment::PxPyPz.as_str(), "+X+Y+Z");
+        assert_eq!(AxesAlignment::NzPxNy.as_str(), "-Z+X-Y");
     }
 }

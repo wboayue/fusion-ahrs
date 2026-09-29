@@ -11,9 +11,10 @@ fn test_settings_processing() {
     let settings = ahrs.get_settings();
     assert_eq!(settings.gain, 0.5);
     assert_eq!(settings.gyroscope_range, 0.0); // Disabled by default (C compat)
-    assert_eq!(settings.acceleration_rejection, 90.0); // C default
-    assert_eq!(settings.magnetic_rejection, 90.0); // C default
-    assert_eq!(settings.recovery_trigger_period, 0); // Disabled by default (C compat)
+    assert_eq!(settings.sample_rate, 100.0); // C default
+    assert_eq!(settings.acceleration_rejection, 0.0); // Disabled by default (C compat)
+    assert_eq!(settings.magnetic_rejection, 0.0); // Disabled by default (C compat)
+    assert_eq!(settings.rejection_timeout, 0.0); // Disabled by default (C compat)
 
     // Test enabled gyroscope range
     let settings_enabled = AhrsSettings {
@@ -80,17 +81,16 @@ fn test_quaternion_integration() {
     let gyroscope = Vector3::new(0.0, 0.0, 10.0); // 10 deg/s around Z
     let accelerometer = Vector3::new(0.0, 0.0, 1.0); // Static
     let magnetometer = Vector3::new(1.0, 0.0, 0.0); // North
-    let delta_time = 0.01; // 10ms
 
     // Complete initialization first (3+ seconds)
     for _ in 0..400 {
-        ahrs.update(Vector3::zeros(), accelerometer, magnetometer, delta_time);
+        ahrs.update(Vector3::zeros(), accelerometer, magnetometer);
     }
-    assert!(!ahrs.flags().initialising);
+    assert!(!ahrs.flags().startup);
 
     // Apply rotation for 1 second (should rotate ~10 degrees)
     for _ in 0..100 {
-        ahrs.update(gyroscope, accelerometer, magnetometer, delta_time);
+        ahrs.update(gyroscope, accelerometer, magnetometer);
     }
 
     let (roll, pitch, yaw) = ahrs.quaternion().euler_angles();
@@ -108,7 +108,7 @@ fn test_quaternion_integration() {
 fn test_accelerometer_rejection() {
     let settings = AhrsSettings {
         acceleration_rejection: 10.0, // 10 degree threshold
-        recovery_trigger_period: 50,  // 50 samples
+        rejection_timeout: 0.5,       // 50 samples at 100 Hz
         ..Default::default()
     };
     let mut ahrs = Ahrs::with_settings(settings);
@@ -119,16 +119,16 @@ fn test_accelerometer_rejection() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, normal_accel, mag, 0.01);
+        ahrs.update(gyro, normal_accel, mag);
     }
-    assert!(!ahrs.flags().initialising);
+    assert!(!ahrs.flags().startup);
 
     // Apply large acceleration (should be rejected)
     let large_accel = Vector3::new(2.0, 2.0, 1.0);
 
     let mut rejection_triggered = false;
     for _i in 0..100 {
-        ahrs.update(gyro, large_accel, mag, 0.01);
+        ahrs.update(gyro, large_accel, mag);
         let states = ahrs.internal_states();
 
         if states.accelerometer_ignored || states.acceleration_recovery_trigger > 10.0 {
@@ -147,8 +147,8 @@ fn test_accelerometer_rejection() {
 #[test]
 fn test_magnetometer_rejection() {
     let settings = AhrsSettings {
-        magnetic_rejection: 10.0,    // 10 degree threshold
-        recovery_trigger_period: 50, // 50 samples
+        magnetic_rejection: 10.0, // 10 degree threshold
+        rejection_timeout: 0.5,   // 50 samples at 100 Hz
         ..Default::default()
     };
     let mut ahrs = Ahrs::with_settings(settings);
@@ -159,9 +159,9 @@ fn test_magnetometer_rejection() {
     let normal_mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, accel, normal_mag, 0.01);
+        ahrs.update(gyro, accel, normal_mag);
     }
-    assert!(!ahrs.flags().initialising);
+    assert!(!ahrs.flags().startup);
 
     // Apply magnetic interference (should cause large error)
     // The cross product preprocessing in the algorithm means we need a different test case
@@ -169,7 +169,7 @@ fn test_magnetometer_rejection() {
 
     let mut rejection_triggered = false;
     for _i in 0..100 {
-        ahrs.update(gyro, accel, interfered_mag, 0.01);
+        ahrs.update(gyro, accel, interfered_mag);
         let states = ahrs.internal_states();
 
         if states.magnetometer_ignored || states.magnetic_recovery_trigger > 10.0 {
@@ -184,9 +184,9 @@ fn test_magnetometer_rejection() {
     );
 }
 
-/// Test gyroscope overflow detection
+/// Test gyroscope overrange detection
 #[test]
-fn test_gyroscope_overflow() {
+fn test_gyroscope_overrange() {
     let settings = AhrsSettings {
         gyroscope_range: 500.0, // 500 deg/s limit
         ..Default::default()
@@ -199,16 +199,16 @@ fn test_gyroscope_overflow() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(normal_gyro, accel, mag, 0.01);
+        ahrs.update(normal_gyro, accel, mag);
     }
-    assert!(!ahrs.flags().initialising);
+    assert!(!ahrs.flags().startup);
 
     // Apply gyroscope overflow
     let overflow_gyro = Vector3::new(600.0, 0.0, 0.0); // Exceeds limit
-    ahrs.update(overflow_gyro, accel, mag, 0.01);
+    ahrs.update(overflow_gyro, accel, mag);
 
-    assert!(ahrs.flags().angular_rate_recovery);
-    assert!(ahrs.flags().initialising); // Should restart initialization
+    assert!(ahrs.flags().overrange_recovery);
+    assert!(ahrs.flags().startup); // Should restart startup
 }
 
 /// Test coordinate convention consistency
@@ -252,12 +252,7 @@ fn test_coordinate_conventions() {
 
         // Test that linear acceleration is calculated correctly
         let accel_input = Vector3::new(0.0, 0.0, 1.0);
-        ahrs.update(
-            Vector3::zeros(),
-            accel_input,
-            Vector3::new(1.0, 0.0, 0.0),
-            0.01,
-        );
+        ahrs.update(Vector3::zeros(), accel_input, Vector3::new(1.0, 0.0, 0.0));
 
         let linear_accel = ahrs.linear_acceleration();
 
@@ -287,7 +282,7 @@ fn test_coordinate_conventions() {
 fn test_initialization_ramping() {
     let mut ahrs = Ahrs::new();
 
-    assert!(ahrs.flags().initialising);
+    assert!(ahrs.flags().startup);
 
     let gyro = Vector3::zeros();
     let accel = Vector3::new(0.0, 0.0, 1.0);
@@ -295,21 +290,17 @@ fn test_initialization_ramping() {
 
     // Run for exactly 3 seconds at 100Hz to complete initialization
     for i in 0..300 {
-        ahrs.update(gyro, accel, mag, 0.01);
+        ahrs.update(gyro, accel, mag);
 
         if i < 299 {
             // Should still be initializing
-            assert!(
-                ahrs.flags().initialising,
-                "Should be initializing at step {}",
-                i
-            );
+            assert!(ahrs.flags().startup, "Should be initializing at step {}", i);
         }
     }
 
     // Should be done initializing after 3 seconds
-    assert!(!ahrs.flags().initialising, "Should be done initializing");
-    assert!(!ahrs.flags().angular_rate_recovery);
+    assert!(!ahrs.flags().startup, "Should be done initializing");
+    assert!(!ahrs.flags().overrange_recovery);
 }
 
 /// Test numerical precision by comparing with expected quaternion values
@@ -323,7 +314,7 @@ fn test_numerical_precision() {
     let mag = Vector3::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
-        ahrs.update(gyro, accel, mag, 0.01);
+        ahrs.update(gyro, accel, mag);
     }
 
     // Quaternion should be very close to identity
@@ -353,7 +344,7 @@ fn test_feedback_scaling_parity() {
         gain: 1.0,
         acceleration_rejection: 90.0, // Don't reject
         magnetic_rejection: 90.0,
-        recovery_trigger_period: 0,
+        rejection_timeout: 0.0,
         ..Default::default()
     };
     let mut ahrs = Ahrs::with_settings(settings);
@@ -363,9 +354,9 @@ fn test_feedback_scaling_parity() {
     let accel = Vector3::new(0.0, 0.0, 1.0);
     let mag = Vector3::new(1.0, 0.0, 0.0);
     for _ in 0..400 {
-        ahrs.update(gyro, accel, mag, 0.01);
+        ahrs.update(gyro, accel, mag);
     }
-    assert!(!ahrs.flags().initialising);
+    assert!(!ahrs.flags().startup);
 
     // Now introduce a tilt error
     // Start from identity and apply tilted accelerometer
@@ -375,7 +366,7 @@ fn test_feedback_scaling_parity() {
     let tilted_accel = Vector3::new(0.5, 0.0, 0.866); // sin(30°), 0, cos(30°)
 
     // Single update with tilted accelerometer
-    ahrs.update(gyro, tilted_accel, mag, 0.01);
+    ahrs.update(gyro, tilted_accel, mag);
 
     // Get the quaternion after one update
     let quat_after = ahrs.quaternion();
@@ -389,7 +380,7 @@ fn test_feedback_scaling_parity() {
 
     // After multiple updates, the difference becomes more apparent
     for _ in 0..50 {
-        ahrs.update(gyro, tilted_accel, mag, 0.01);
+        ahrs.update(gyro, tilted_accel, mag);
     }
 
     let quat_final = ahrs.quaternion();
@@ -424,7 +415,7 @@ fn test_internal_states_error_uses_asin() {
     let settings = AhrsSettings {
         acceleration_rejection: 90.0,
         magnetic_rejection: 90.0,
-        recovery_trigger_period: 0,
+        rejection_timeout: 0.0,
         ..Default::default()
     };
     let mut ahrs = Ahrs::with_settings(settings);
@@ -434,7 +425,7 @@ fn test_internal_states_error_uses_asin() {
     let accel = Vector3::new(0.0, 0.0, 1.0);
     let mag = Vector3::new(1.0, 0.0, 0.0);
     for _ in 0..400 {
-        ahrs.update(gyro, accel, mag, 0.01);
+        ahrs.update(gyro, accel, mag);
     }
 
     // Create a known error angle
@@ -443,7 +434,7 @@ fn test_internal_states_error_uses_asin() {
     let angle_rad = angle_deg.to_radians();
     let tilted_accel = Vector3::new(angle_rad.sin(), 0.0, angle_rad.cos());
 
-    ahrs.update(gyro, tilted_accel, mag, 0.01);
+    ahrs.update(gyro, tilted_accel, mag);
 
     let states = ahrs.internal_states();
 
@@ -471,7 +462,7 @@ fn test_internal_states_error_uses_asin() {
     let angle_rad_large = angle_deg_large.to_radians();
     let tilted_accel_large = Vector3::new(angle_rad_large.sin(), 0.0, angle_rad_large.cos());
 
-    ahrs.update(gyro, tilted_accel_large, mag, 0.01);
+    ahrs.update(gyro, tilted_accel_large, mag);
     let states_large = ahrs.internal_states();
 
     // Without asin: error ≈ rad_to_deg(sin(60°)) = rad_to_deg(0.866) ≈ 49.6°

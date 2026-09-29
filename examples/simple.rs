@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Initialize AHRS with default settings
-    // Default: NWU convention, 0.5 gain, 2000 deg/s gyro range
+    // Default: 100 Hz sample rate, NWU convention, 0.5 gain
     let mut ahrs = Ahrs::new();
     let mut euler_angles = Vec::new();
 
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Update AHRS without magnetometer - heading will drift over time
         // but roll and pitch will remain accurate
-        ahrs.update_no_magnetometer(gyroscope, accelerometer, 1.0 / SAMPLE_RATE);
+        ahrs.update_no_magnetometer(gyroscope, accelerometer);
 
         // Extract orientation as quaternion and convert to Euler angles
         let quaternion = ahrs.quaternion();

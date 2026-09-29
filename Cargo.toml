@@ -1,3 +1,6 @@
+[workspace]
+members = ["fusion-c-sys"]
+
 [package]
 name = "fusion-ahrs"
 version = "0.7.0"
@@ -16,6 +19,7 @@ exclude = [
     "justfile",
     "CLAUDE.md",
     "fusion-c",
+    "fusion-c-sys",
     ".github",
     ".config",
     ".gitmodules",
@@ -34,6 +38,8 @@ serde = { version = "1.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 rand = "0.10"
 rand_pcg = "0.10"
+# Test-only C reference bindings; path-only, stripped on publish
+fusion-c-sys = { path = "fusion-c-sys" }
 
 [[bench]]
 name = "ahrs_benchmarks"

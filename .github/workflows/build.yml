@@ -25,6 +25,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@nightly
 
       # Cache cargo registry, index, and build directories
@@ -43,15 +45,18 @@ jobs:
             sudo apt update
             sudo apt install libfontconfig1-dev pkg-config
 
-      - name: Generate test results
-        run: |
-          mkdir -p test-results;
-          cargo install cargo-nextest;
-          cargo nextest run --profile ci || true;
-        continue-on-error: true
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Test
+        run: cargo nextest run --profile ci
+
+      # nextest does not run doctests
+      - name: Doctests
+        run: cargo test --doc
 
       - name: Create Github test summary
         uses: test-summary/action@dist
         with:
-          paths: test-results/**/*.xml
+          paths: target/nextest/ci/test-results/*.xml
         if: always()

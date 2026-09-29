@@ -33,11 +33,12 @@ src/
   math.rs         – math utilities, Vector3Ext / QuaternionExt traits
   axes.rs         – sensor axes alignment (axes_swap, AxesAlignment)
   compass.rs      – tilt-compensated magnetic heading (calculate_heading)
+fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe FFI wrappers (publish = false)
 ```
 
 ### Dependencies
 - `nalgebra` — vector/matrix ops (no-std compatible, `libm` feature)
-- Dev only: `csv`, `serde`, `plotters`, `criterion`, `rand`, `rand_pcg`
+- Dev only: `csv`, `serde`, `plotters`, `criterion`, `rand`, `rand_pcg`, `fusion-c-sys` (path-only, stripped on publish)
 - C reference implementation in `fusion-c/` (git submodule — `git submodule update --init`)
 
 ### Project-Specific Conventions
@@ -65,7 +66,8 @@ src/
 ## C Parity Workflow
 Algorithm parity with the upstream C library is enforced via integration tests:
 - `tests/c_parity_tests.rs` — pure-Rust assertions that mirror C behavior on synthetic inputs
-- `tests/c_comparison_test.rs` — runs both implementations on `testdata/sensor_data.csv` and compares outputs (requires `fusion-c/` submodule)
+- `tests/c_comparison_test.rs` — `c_*` tests run the C library (via `fusion-c-sys`) and Rust side by side on `testdata/sensor_data.csv`, comparing every output on every sample; also covers offset, compass, remap, calibration models, and to-string. Requires the `fusion-c/` submodule and a C compiler
+- When syncing upstream, bump the submodule, run `cargo test --test c_comparison_test`, and add shim/wrapper coverage in `fusion-c-sys` for any new C API
 - `tests/verification_tests.rs` — broader algorithm-behavior checks
 
 When Rust output diverges from C, the C side is authoritative — port the C fix into the Rust implementation rather than adjusting the Rust output. If a deliberate divergence is unavoidable, document it inline and in the PR description.
