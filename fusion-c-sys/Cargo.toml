@@ -1,0 +1,10 @@
+[package]
+name = "fusion-c-sys"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Test-only FFI bindings to the upstream Fusion C library, used for parity tests."
+license = "MIT OR Apache-2.0"
+
+[build-dependencies]
+cc = "1.2"

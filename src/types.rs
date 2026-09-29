@@ -46,20 +46,21 @@ pub enum Convention {
 }
 
 impl Convention {
-    /// Returns the convention as a string: `"NWU"`, `"ENU"`, or `"NED"`.
+    /// Returns the convention as a string, matching the C library's
+    /// `FusionConventionToString`.
     ///
     /// # Example
     /// ```
     /// use fusion_ahrs::Convention;
     ///
-    /// assert_eq!(Convention::Ned.as_str(), "NED");
-    /// assert_eq!(Convention::Enu.to_string(), "ENU");
+    /// assert_eq!(Convention::Ned.as_str(), "North, East, Down (NED)");
+    /// assert_eq!(Convention::Enu.to_string(), "East, North, Up (ENU)");
     /// ```
     pub const fn as_str(self) -> &'static str {
         match self {
-            Convention::Nwu => "NWU",
-            Convention::Enu => "ENU",
-            Convention::Ned => "NED",
+            Convention::Nwu => "North, West, Up (NWU)",
+            Convention::Enu => "East, North, Up (ENU)",
+            Convention::Ned => "North, East, Down (NED)",
         }
     }
 }

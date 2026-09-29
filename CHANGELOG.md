@@ -14,7 +14,7 @@ Synced with upstream Fusion C `a8d7224` (2026-09-18). This release contains brea
 - `Ahrs::set_sample_period` to compensate for per-sample timing jitter.
 - `Ahrs::skip_startup` to skip the startup gain ramp when the initial orientation is already known.
 - `Ahrs::restart`, replacing `initialise`/`reset`.
-- `Display` and `as_str()` for `Convention` (`"NWU"`, `"ENU"`, `"NED"`) and `AxesAlignment` (e.g. `"+Y-X+Z"`), mirroring upstream's to-string functions.
+- `Display` and `as_str()` for `Convention` (e.g. `"North, West, Up (NWU)"`) and `AxesAlignment` (e.g. `"+Y-X+Z"`), matching upstream's to-string functions.
 
 ### Changed
 - **Breaking:** `update`, `update_no_magnetometer`, and `update_external_heading` no longer take a `delta_time` argument. Set `sample_rate` in settings, and call `set_sample_period` before each update if timing varies.

@@ -109,7 +109,8 @@ pub enum AxesAlignment {
 }
 
 impl AxesAlignment {
-    /// Returns the alignment as a string, e.g. `"+Y-X+Z"`.
+    /// Returns the alignment as a string, e.g. `"+Y-X+Z"`, matching the C
+    /// library's `FusionRemapAlignmentToString`.
     ///
     /// # Example
     /// ```
