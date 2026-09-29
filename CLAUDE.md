@@ -6,10 +6,13 @@ Rust port of the Fusion AHRS C library, maintaining algorithm parity while follo
 
 ```bash
 git submodule update --init         # required for C parity tests (pulls fusion-c/)
-cargo test                          # run all tests
-cargo fmt                           # format (required before commit)
-cargo clippy                        # lint
-cargo doc --no-deps                 # build rustdoc for public API
+cargo test                          # run all tests (needs submodule + C compiler)
+cargo test --test c_comparison_test # AHRS vs C library, every sample
+cargo test --test c_math_test       # math types vs FusionMath.h, bit-exact
+cargo fmt --all                     # format (required before commit)
+cargo clippy --workspace --all-targets -- -D warnings   # lint as CI does
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps          # rustdoc for public API
+cargo +1.85 build --lib --target thumbv7em-none-eabihf  # MSRV + no_std check
 cargo bench                         # criterion benchmarks (ahrs_benchmarks)
 cargo run --example simple          # basic 6-DOF usage with plots
 cargo run --example advanced        # full 9-DOF with offset & diagnostics
@@ -50,7 +53,7 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 ### Algorithm Features
 - Complementary filter combining high-pass gyroscope + low-pass accel/mag
 - Acceleration/magnetic rejection for motion artifacts
-- Automatic initialization and recovery modes
+- Startup gain ramp, gyroscope overrange recovery, acceleration/magnetic recovery
 - Support for NWU, ENU, NED coordinate conventions
 
 ## Test Data
@@ -63,6 +66,7 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 - In library code use `libm` for float functions (`libm::sqrtf`, `libm::fabsf`, …), since `no_std` on the MSRV lacks `f32` methods
 - Maintain embedded compatibility: `src/lib.rs` is `#![no_std]` unconditionally — do not introduce `std`-only dependencies or APIs
 - Most modules (`ahrs`, `axes`, `calibration`, `compass`, `math`, `offset`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
+- Exact `f32` test constants (e.g. adjacent values around a boundary): use `f32::from_bits(0x…)`; long literals trip clippy `excessive_precision`
 - Commit messages follow conventional-commit style. Common prefixes: `feat(scope): …`, `fix(scope): …`, `docs: …`, `test: …`, `refactor: …`, `bench: …`, `chore(scope): …` (e.g. `chore(deps)`, `chore(cargo)`, `chore(parity)`). `fmt: …` is the project-specific prefix for pure `cargo fmt` commits
 
 ## C Parity Workflow
@@ -73,7 +77,23 @@ Algorithm parity with the upstream C library is enforced via integration tests:
 - `tests/c_math_test.rs` — math types vs `FusionMath.h` on random inputs; arithmetic must match bit for bit
 - `tests/verification_tests.rs` — broader algorithm-behavior checks
 
+`fusion-c-sys` compiles C with `FUSION_USE_NORMAL_SQRT` and `-ffp-contract=off`. Any "matches C" claim (docs, changelog, PRs) must state that assumption: the default C build uses a fast approximate inverse square root. Expected results under that build:
+- 9-axis update outputs (quaternion, gravity, linear/earth acceleration, flags, triggers) are bit-identical to C on `sensor_data.csv`
+- Accepted divergences: trig-based values differ by ~1 ULP because C links the platform `libm` and Rust uses the `libm` crate (error angles, `set_heading`, external-heading updates); `Vector::normalize` of zero returns zero where C returns NaN
+
+After adding or changing a parity test, prove it can fail: perturb one constant or operation order (e.g. 0.98 → 0.97, reassociate a sum), confirm the test fails, then revert.
+
 When Rust output diverges from C, the C side is authoritative — port the C fix into the Rust implementation rather than adjusting the Rust output. If a deliberate divergence is unavoidable, document it inline and in the PR description.
+
+## Performance
+- Dev-machine benchmark noise is roughly ±8%; don't trust eyeballed before/after runs. Compare with criterion baselines sharing one target dir:
+  ```bash
+  export CARGO_TARGET_DIR=/tmp/bench-tgt
+  git worktree add /tmp/main-wt main && (cd /tmp/main-wt && git submodule update --init)  # benches build fusion-c-sys
+  (cd /tmp/main-wt && cargo bench --bench ahrs_benchmarks -- --save-baseline main)
+  cargo bench --bench ahrs_benchmarks -- --baseline main
+  ```
+- Generic public functions are monomorphized in the caller's crate, where this crate's private non-`#[inline]` helpers can't inline. Keep generic shells thin (convert, then call a private non-generic body). Don't mark the private bodies `#[inline]`: that moves them back into the caller and regressed `update` 20–38%
 
 ## README Maintenance
 Keep `README.md` in sync with the code in the same PR that introduces the change — a stale README is worse than no README.
@@ -96,11 +116,21 @@ Keep `CHANGELOG.md` following [Keep a Changelog 1.1.0](https://keepachangelog.co
 
 ## Release Notes Guidelines
 - Published as GitHub Releases, derived from the `CHANGELOG.md` entry for that version; body is authored/expanded when tagging
-- Group changes under ## What's New and ## Bug Fixes headings as applicable
+- Title is the tag (e.g. `v0.8.0`); open with a short summary and the `Cargo.toml` dependency line
+- Group changes under ## What's New, ## Breaking Changes, and ## Bug Fixes headings as applicable
+- Breaking releases start with an "Upgrading from x.y" table (old API → new API), and each breaking item shows Before (x.y) / After snippets
 - Each item gets an ### H3 heading with short description and PR number (e.g., ### Feature name (#123))
 - One-sentence summary below the heading
 - A code sample showing typical usage in a fenced ```rust block
 - Order items by significance (most impactful first)
+- Verify every snippet compiles and runs: "Before" snippets against the previous crates.io version, the rest against the release tag
+- Show the draft to the maintainer before creating the GitHub release
+
+## Release Workflow
+1. Feature PRs are squash-merged with a conventional title ending in `(#N)`
+2. Release PR `chore(release): vX.Y.Z`: bump `Cargo.toml`, promote `[Unreleased]`, update compare links; run `cargo package` (verifies the crate builds without `fusion-c-sys`)
+3. After merge: `just tag vX.Y.Z`, then create the GitHub release from the approved notes
+4. The maintainer runs `cargo publish`; afterwards confirm crates.io and docs.rs (`https://docs.rs/fusion-ahrs/X.Y.Z/fusion_ahrs/`) show the new version
 
 ## Success Criteria
 - Matches C library performance benchmarks
