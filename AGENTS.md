@@ -43,6 +43,7 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 - `libm` — `no_std` float functions (sqrt, trig); private, not part of the public API
 - Optional `nalgebra_0_35` (package `nalgebra`) behind feature `nalgebra-0_35` — conversions only, in `src/interop.rs`. Needs Rust 1.89, above the crate MSRV
 - Adding a nalgebra version: new optional dependency `nalgebra_X_Y = { package = "nalgebra", version = "X.Y", optional = true, default-features = false }`, feature `nalgebra-X_Y = ["dep:nalgebra_X_Y"]`, one `nalgebra_conversions!(nalgebra_X_Y, "nalgebra-X_Y")` line, and a copy of `tests/nalgebra_interop.rs`. Keep older versions; removing one is a breaking change
+- The test dev-dependency reuses the key `nalgebra_0_35` (Cargo rejects one crate under two names) with default features; doc examples alias it with a hidden `# use nalgebra_0_35 as nalgebra;`. Because that dev-dependency enables nalgebra's `std`, test runs can't catch interop code that needs nalgebra float features; the lib-only `cargo build --all-features` (host and `thumbv7em-none-eabihf`) in CI does. Keep interop free of `RealField` bounds (e.g. normalise with the crate's own math, then `UnitQuaternion::new_unchecked`)
 - Dev only: `csv`, `serde`, `plotters`, `criterion`, `rand`, `rand_pcg`, `fusion-c-sys` (path-only, stripped on publish)
 - C reference implementation in `fusion-c/` (git submodule — `git submodule update --init`)
 
@@ -70,9 +71,10 @@ fusion-c-sys/     – test-only workspace crate: builds fusion-c/ via `cc`, safe
 - In library code use `libm` for float functions (`libm::sqrtf`, `libm::fabsf`, …), since `no_std` on the MSRV lacks `f32` methods
 - Maintain embedded compatibility: `src/lib.rs` is `#![no_std]` unconditionally — do not introduce `std`-only dependencies or APIs
 - Most modules (`ahrs`, `bias`, `calibration`, `compass`, `math`, `remap`) carry inline unit tests in a `#[cfg(test)] mod tests` block; integration tests live in `tests/`
-- API stability follows the README "Versioning" section: from 1.0, new settings/state fields, renamed or removed items, argument reorders, and removed nalgebra features are major-version changes; MSRV bumps are minor-only and go in the changelog
+- API stability follows the README "Versioning" section: from 1.0, new settings/state/flag fields, new enum variants, renamed or removed items, argument reorders, and removed nalgebra features are major-version changes; MSRV bumps are minor-only and go in the changelog
 - Ported functions keep the C library's argument order (e.g. `calculate_heading(accelerometer, magnetometer, convention)` like `FusionCompass`)
 - CI (`build.yml`) runs tests on stable, a `lint` job (fmt, clippy with and without features, rustdoc `-D warnings`), a `docs` job (nightly rustdoc with `--cfg docsrs`, as docs.rs builds), and an `msrv` job (Rust 1.85, host and `thumbv7em-none-eabihf`, default features)
+- Debug-only checks (`debug_assert!`, e.g. `sample_rate > 0`) are documented under `# Panics` as "in debug builds", and their `#[should_panic]` tests need `#[cfg(debug_assertions)]` or they fail under `--release`
 - Exact `f32` test constants (e.g. adjacent values around a boundary): use `f32::from_bits(0x…)`; long literals trip clippy `excessive_precision`
 - Commit messages follow conventional-commit style. Common prefixes: `feat(scope): …`, `fix(scope): …`, `docs: …`, `test: …`, `refactor: …`, `bench: …`, `chore(scope): …` (e.g. `chore(deps)`, `chore(cargo)`, `chore(parity)`). `fmt: …` is the project-specific prefix for pure `cargo fmt` commits
 
@@ -85,7 +87,7 @@ Algorithm parity with the upstream C library is enforced via integration tests:
 - `tests/verification_tests.rs` — broader algorithm-behavior checks
 
 `fusion-c-sys` compiles C with `FUSION_USE_NORMAL_SQRT` and `-ffp-contract=off`. Any "matches C" claim (docs, changelog, PRs) must state that assumption: the default C build uses a fast approximate inverse square root. Expected results under that build:
-- 9-axis update outputs (quaternion, gravity, linear/earth acceleration, flags, triggers) are bit-identical to C on `sensor_data.csv`
+- 9-axis update outputs (quaternion, gravity, linear/earth acceleration, flags, triggers) and `Bias` outputs are bit-identical to C on `sensor_data.csv`; `tests/c_comparison_test.rs` holds `Bias` to tolerance 0
 - Accepted divergences: trig-based values differ by ~1 ULP because C links the platform `libm` and Rust uses the `libm` crate (error angles, `set_heading`, external-heading updates); `Vector::normalize` of zero returns zero where C returns NaN
 
 After adding or changing a parity test, prove it can fail: perturb one constant or operation order (e.g. 0.98 → 0.97, reassociate a sum), confirm the test fails, then revert.
@@ -100,6 +102,7 @@ When Rust output diverges from C, the C side is authoritative — port the C fix
   (cd /tmp/main-wt && cargo bench --bench ahrs_benchmarks -- --save-baseline main)
   cargo bench --bench ahrs_benchmarks -- --baseline main
   ```
+- Speed vs C (the "matches C performance" criterion): time `Ahrs::update` against `fusion_c_sys::Ahrs::update` over `sensor_data.csv` in a release build. At 0.9 both were ~35–36 ns/update (C side includes FFI marshalling)
 - Generic public functions are monomorphized in the caller's crate, where this crate's private non-`#[inline]` helpers can't inline. Keep generic shells thin (convert, then call a private non-generic body). Don't mark the private bodies `#[inline]`: that moves them back into the caller and regressed `update` 20–38%
 
 ## README Maintenance
@@ -136,6 +139,7 @@ Keep `CHANGELOG.md` following [Keep a Changelog 1.1.0](https://keepachangelog.co
 ## Release Workflow
 1. Feature PRs are squash-merged with a conventional title ending in `(#N)`
 2. Release PR `chore(release): vX.Y.Z`: bump `Cargo.toml`, promote `[Unreleased]`, update compare links; run `cargo package` (verifies the crate builds without `fusion-c-sys`), then unpack `target/package/fusion-ahrs-X.Y.Z.crate` and run `cargo test --all-features` inside it with a fresh `CARGO_TARGET_DIR` (a reused one can hold a stale build of the same version), since `cargo package` only builds the library. Tests that need `fusion-c-sys` must be in the `exclude` list
+   `cargo package` doesn't validate `categories`; check new slugs exist (`https://crates.io/api/v1/categories/<slug>` returns 200). "ignoring test … not included in the published package" warnings for the C tests are expected
 3. After merge: `just tag vX.Y.Z`, then create the GitHub release from the approved notes
 4. The maintainer runs `cargo publish`; afterwards confirm crates.io and docs.rs (`https://docs.rs/fusion-ahrs/X.Y.Z/fusion_ahrs/`) show the new version
 
