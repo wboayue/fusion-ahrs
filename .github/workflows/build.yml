@@ -45,15 +45,17 @@ jobs:
             sudo apt update
             sudo apt install libfontconfig1-dev pkg-config
 
-      - name: Generate test results
+      - name: Test
         run: |
-          mkdir -p test-results;
-          cargo install cargo-nextest;
-          cargo nextest run --profile ci || true;
-        continue-on-error: true
+          cargo install cargo-nextest
+          cargo nextest run --profile ci
+
+      # nextest does not run doctests
+      - name: Doctests
+        run: cargo test --doc
 
       - name: Create Github test summary
         uses: test-summary/action@dist
         with:
-          paths: test-results/**/*.xml
+          paths: target/nextest/ci/test-results/*.xml
         if: always()
