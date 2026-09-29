@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Synced with upstream Fusion C `a8d7224` (2026-09-18). This release contains breaking API changes that mirror upstream.
+## [0.8.0] - 2026-09-28
+
+Synced with upstream Fusion C `a8d7224` (2026-09-18) (#40). This release contains breaking API changes that mirror upstream.
 
 ### Added
 - `AhrsSettings::sample_rate` (Hz, default 100). The gyroscope is integrated over `1 / sample_rate`.
@@ -121,7 +123,8 @@ Synced with upstream Fusion C `a8d7224` (2026-09-18). This release contains brea
 - `#![no_std]` compatibility with nalgebra integration.
 - Simple and advanced examples plus included test data.
 
-[Unreleased]: https://github.com/wboayue/fusion-ahrs/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/wboayue/fusion-ahrs/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.4.1...v0.5.0
