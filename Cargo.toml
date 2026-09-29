@@ -3,7 +3,7 @@ members = ["fusion-c-sys"]
 
 [package]
 name = "fusion-ahrs"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Wil Boayue <wil@wsblabs.com>"]
@@ -24,6 +24,9 @@ exclude = [
     ".config",
     ".gitmodules",
     "testdata",
+    # Need the unpublished fusion-c-sys and the fusion-c submodule
+    "tests/c_comparison_test.rs",
+    "tests/c_math_test.rs",
     "*.png",
     "tarpaulin-report.html",
 ]

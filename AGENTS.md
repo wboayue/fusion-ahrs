@@ -132,7 +132,7 @@ Keep `CHANGELOG.md` following [Keep a Changelog 1.1.0](https://keepachangelog.co
 
 ## Release Workflow
 1. Feature PRs are squash-merged with a conventional title ending in `(#N)`
-2. Release PR `chore(release): vX.Y.Z`: bump `Cargo.toml`, promote `[Unreleased]`, update compare links; run `cargo package` (verifies the crate builds without `fusion-c-sys`)
+2. Release PR `chore(release): vX.Y.Z`: bump `Cargo.toml`, promote `[Unreleased]`, update compare links; run `cargo package` (verifies the crate builds without `fusion-c-sys`), then unpack `target/package/fusion-ahrs-X.Y.Z.crate` and run `cargo test --all-features` inside it, since `cargo package` only builds the library. Tests that need `fusion-c-sys` must be in the `exclude` list
 3. After merge: `just tag vX.Y.Z`, then create the GitHub release from the approved notes
 4. The maintainer runs `cargo publish`; afterwards confirm crates.io and docs.rs (`https://docs.rs/fusion-ahrs/X.Y.Z/fusion_ahrs/`) show the new version
 

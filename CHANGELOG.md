@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-28
+
+Replaces `nalgebra` in the public API with the crate's own math types that mirror the C library (#42, #43), adds optional nalgebra conversions (#44), and makes API names consistent ahead of 1.0 (#45). This release contains breaking changes; see the rename table below.
+
 ### Added
 - `Vector`, `Quaternion`, `Matrix`, and `Euler` math types mirroring the C library's `FusionMath.h`. Arithmetic follows C's operation order and matches C built with `FUSION_USE_NORMAL_SQRT` bit for bit; the default C build uses a fast approximate inverse square root, and normalising a zero vector returns zero where C returns NaN.
 - Optional `nalgebra-0_35` feature with `From` conversions both ways between `Vector`/`Quaternion`/`Matrix` and nalgebra's `Vector3<f32>`/`Quaternion<f32>`/`UnitQuaternion<f32>`/`Matrix3<f32>`, so nalgebra values can be passed directly to the API. Features are versioned, so future nalgebra releases get new features alongside the old ones instead of breaking changes. The feature requires Rust 1.89 (nalgebra's MSRV).
@@ -35,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Breaking:** deprecated `Ahrs::initialise` and `Ahrs::reset`; use `Ahrs::restart`.
 - **Breaking:** `Offset` accessors `timer`, `timeout` (samples, confusingly named like the seconds setting), `threshold`, `cutoff_frequency`, and `filter_coefficient`; use `Bias::settings()`.
 - **Breaking:** `Vector3Ext` and `QuaternionExt` traits. Their methods are on the new types: `Vector::norm`, `Vector::normalize` (was `safe_normalize`), `Vector::to_radians`/`to_degrees`, `Quaternion::to_euler` and `Quaternion::from_euler` (degrees, via `Euler`).
+
+### Fixed
+- The published crate's tests compile again: the C comparison tests, which need the unpublished C bindings, are no longer included in the package.
 
 ## [0.8.0] - 2026-09-28
 
@@ -153,7 +160,8 @@ Synced with upstream Fusion C `a8d7224` (2026-09-18) (#40). This release contain
 - `#![no_std]` compatibility with nalgebra integration.
 - Simple and advanced examples plus included test data.
 
-[Unreleased]: https://github.com/wboayue/fusion-ahrs/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/wboayue/fusion-ahrs/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/wboayue/fusion-ahrs/compare/v0.5.0...v0.6.0
