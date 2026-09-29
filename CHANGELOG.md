@@ -40,6 +40,9 @@ Replaces `nalgebra` in the public API with the crate's own math types that mirro
 - **Breaking:** `Offset` accessors `timer`, `timeout` (samples, confusingly named like the seconds setting), `threshold`, `cutoff_frequency`, and `filter_coefficient`; use `Bias::settings()`.
 - **Breaking:** `Vector3Ext` and `QuaternionExt` traits. Their methods are on the new types: `Vector::norm`, `Vector::normalize` (was `safe_normalize`), `Vector::to_radians`/`to_degrees`, `Quaternion::to_euler` and `Quaternion::from_euler` (degrees, via `Euler`).
 
+### Fixed
+- The published crate's tests compile again: the C comparison tests, which need the unpublished C bindings, are no longer included in the package.
+
 ## [0.8.0] - 2026-09-28
 
 Synced with upstream Fusion C `a8d7224` (2026-09-18) (#40). This release contains breaking API changes that mirror upstream.
