@@ -48,12 +48,13 @@ jobs:
       - name: Install nextest
         uses: taiki-e/install-action@nextest
 
+      # Features only add conversions, so --all-features also covers the default build
       - name: Test
-        run: cargo nextest run --profile ci
+        run: cargo nextest run --profile ci --all-features
 
       # nextest does not run doctests
       - name: Doctests
-        run: cargo test --doc
+        run: cargo test --doc --all-features
 
       - name: Create Github test summary
         uses: test-summary/action@dist
