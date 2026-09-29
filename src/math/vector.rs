@@ -47,6 +47,7 @@ impl Vector {
     /// let v = Vector::new(1.0, 2.0, 3.0);
     /// assert_eq!(v.y, 2.0);
     /// ```
+    #[inline]
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
@@ -60,6 +61,7 @@ impl Vector {
     /// assert!(Vector::ZERO.is_zero());
     /// assert!(!Vector::new(0.0, 0.0, 1.0).is_zero());
     /// ```
+    #[inline]
     pub fn is_zero(self) -> bool {
         self.x == 0.0 && self.y == 0.0 && self.z == 0.0
     }
@@ -72,6 +74,7 @@ impl Vector {
     ///
     /// assert_eq!(Vector::new(1.0, 2.0, 3.0).sum(), 6.0);
     /// ```
+    #[inline]
     pub fn sum(self) -> f32 {
         self.x + self.y + self.z
     }
@@ -85,6 +88,7 @@ impl Vector {
     /// let v = Vector::new(1.0, 2.0, 3.0).hadamard(Vector::new(4.0, 5.0, 6.0));
     /// assert_eq!(v, Vector::new(4.0, 10.0, 18.0));
     /// ```
+    #[inline]
     pub fn hadamard(self, rhs: Vector) -> Vector {
         Vector::new(self.x * rhs.x, self.y * rhs.y, self.z * rhs.z)
     }
@@ -97,6 +101,7 @@ impl Vector {
     ///
     /// assert_eq!(Vector::new(1.0, 2.0, 3.0).dot(Vector::new(4.0, 5.0, 6.0)), 32.0);
     /// ```
+    #[inline]
     pub fn dot(self, rhs: Vector) -> f32 {
         self.hadamard(rhs).sum()
     }
@@ -110,6 +115,7 @@ impl Vector {
     /// let z = Vector::new(1.0, 0.0, 0.0).cross(Vector::new(0.0, 1.0, 0.0));
     /// assert_eq!(z, Vector::new(0.0, 0.0, 1.0));
     /// ```
+    #[inline]
     pub fn cross(self, rhs: Vector) -> Vector {
         Vector::new(
             self.y * rhs.z - self.z * rhs.y,
@@ -126,6 +132,7 @@ impl Vector {
     ///
     /// assert_eq!(Vector::new(1.0, 2.0, 2.0).norm_squared(), 9.0);
     /// ```
+    #[inline]
     pub fn norm_squared(self) -> f32 {
         self.hadamard(self).sum()
     }
@@ -138,6 +145,7 @@ impl Vector {
     ///
     /// assert_eq!(Vector::new(3.0, 4.0, 0.0).norm(), 5.0);
     /// ```
+    #[inline]
     pub fn norm(self) -> f32 {
         libm::sqrtf(self.norm_squared())
     }
@@ -145,7 +153,10 @@ impl Vector {
     /// Returns the unit vector in the same direction, or zero for a zero
     /// vector.
     ///
-    /// Multiplies by the reciprocal of the norm, as the C library does.
+    /// Multiplies by the reciprocal of the norm, matching C's
+    /// `FusionVectorNormalise` built with `FUSION_USE_NORMAL_SQRT` (the
+    /// default C build uses a fast approximate inverse square root instead).
+    /// Unlike C, a zero vector returns zero rather than NaN.
     ///
     /// # Example
     /// ```
@@ -154,6 +165,7 @@ impl Vector {
     /// assert_eq!(Vector::new(3.0, 0.0, 4.0).normalize(), Vector::new(0.6, 0.0, 0.8));
     /// assert_eq!(Vector::ZERO.normalize(), Vector::ZERO);
     /// ```
+    #[inline]
     pub fn normalize(self) -> Vector {
         let norm = self.norm();
         if norm == 0.0 {
@@ -171,6 +183,7 @@ impl Vector {
     /// let v = Vector::new(180.0, 0.0, 0.0).to_radians();
     /// assert!((v.x - core::f32::consts::PI).abs() < 1e-6);
     /// ```
+    #[inline]
     pub fn to_radians(self) -> Vector {
         self * DEG_TO_RAD
     }
@@ -184,6 +197,7 @@ impl Vector {
     /// let v = Vector::new(core::f32::consts::PI, 0.0, 0.0).to_degrees();
     /// assert!((v.x - 180.0).abs() < 1e-4);
     /// ```
+    #[inline]
     pub fn to_degrees(self) -> Vector {
         self * RAD_TO_DEG
     }
@@ -192,6 +206,7 @@ impl Vector {
 impl Add for Vector {
     type Output = Vector;
 
+    #[inline]
     fn add(self, rhs: Vector) -> Vector {
         Vector::new(self.x + rhs.x, self.y + rhs.y, self.z + rhs.z)
     }
@@ -200,6 +215,7 @@ impl Add for Vector {
 impl Sub for Vector {
     type Output = Vector;
 
+    #[inline]
     fn sub(self, rhs: Vector) -> Vector {
         Vector::new(self.x - rhs.x, self.y - rhs.y, self.z - rhs.z)
     }
@@ -208,6 +224,7 @@ impl Sub for Vector {
 impl Neg for Vector {
     type Output = Vector;
 
+    #[inline]
     fn neg(self) -> Vector {
         Vector::new(-self.x, -self.y, -self.z)
     }
@@ -216,6 +233,7 @@ impl Neg for Vector {
 impl Mul<f32> for Vector {
     type Output = Vector;
 
+    #[inline]
     fn mul(self, rhs: f32) -> Vector {
         Vector::new(self.x * rhs, self.y * rhs, self.z * rhs)
     }
@@ -224,36 +242,42 @@ impl Mul<f32> for Vector {
 impl Mul<Vector> for f32 {
     type Output = Vector;
 
+    #[inline]
     fn mul(self, rhs: Vector) -> Vector {
         rhs * self
     }
 }
 
 impl AddAssign for Vector {
+    #[inline]
     fn add_assign(&mut self, rhs: Vector) {
         *self = *self + rhs;
     }
 }
 
 impl SubAssign for Vector {
+    #[inline]
     fn sub_assign(&mut self, rhs: Vector) {
         *self = *self - rhs;
     }
 }
 
 impl MulAssign<f32> for Vector {
+    #[inline]
     fn mul_assign(&mut self, rhs: f32) {
         *self = *self * rhs;
     }
 }
 
 impl From<[f32; 3]> for Vector {
+    #[inline]
     fn from([x, y, z]: [f32; 3]) -> Self {
         Vector::new(x, y, z)
     }
 }
 
 impl From<Vector> for [f32; 3] {
+    #[inline]
     fn from(v: Vector) -> Self {
         [v.x, v.y, v.z]
     }

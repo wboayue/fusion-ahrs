@@ -8,7 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- `Vector`, `Quaternion`, `Matrix`, and `Euler` math types mirroring the C library's `FusionMath.h`, with operations that match C bit for bit. They are the first step toward removing `nalgebra` from the public API before 1.0; existing `nalgebra`-based APIs are unchanged in this release.
+- `Vector`, `Quaternion`, `Matrix`, and `Euler` math types mirroring the C library's `FusionMath.h`. Arithmetic follows C's operation order and matches C built with `FUSION_USE_NORMAL_SQRT` bit for bit; the default C build uses a fast approximate inverse square root, and normalising a zero vector returns zero where C returns NaN.
+- Functions that take vectors accept `impl Into<Vector>`, so `[f32; 3]` arrays work directly; `set_quaternion` accepts `impl Into<Quaternion>`, and the calibration functions accept `impl Into<Matrix>`.
+
+### Changed
+- **Breaking:** the public API uses the crate's own math types instead of `nalgebra`. `Ahrs::quaternion` returns `Quaternion`; `gravity`, `linear_acceleration`, `earth_acceleration`, `Offset::update`, `Offset::offset`, `axes_swap`, `calibrate_inertial`, and `calibrate_magnetic` return `Vector`. `nalgebra` is no longer a dependency; optional conversions will follow behind a feature.
+- In 9-axis mode, the quaternion and acceleration outputs now match the C library (built with `FUSION_USE_NORMAL_SQRT`) bit for bit on the test data (previously within about 5e-7). Remaining differences come only from `libm` trigonometric functions (`asinf`, `atan2f`, `sinf`, `cosf`), used by the error angles, `set_heading`, and external heading updates.
+
+### Removed
+- **Breaking:** `Vector3Ext` and `QuaternionExt` traits. Their methods are on the new types: `Vector::norm`, `Vector::normalize` (was `safe_normalize`), `Vector::to_radians`/`to_degrees`, `Quaternion::to_euler` and `Quaternion::from_euler` (degrees, via `Euler`).
 
 ## [0.8.0] - 2026-09-28
 

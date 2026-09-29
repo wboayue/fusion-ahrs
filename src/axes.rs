@@ -5,11 +5,11 @@
 //!
 //! # Example
 //! ```
-//! use nalgebra::Vector3;
+//! use fusion_ahrs::Vector;
 //! use fusion_ahrs::{AxesAlignment, axes_swap};
 //!
 //! // Sensor reading in sensor frame
-//! let sensor = Vector3::new(1.0, 2.0, 3.0);
+//! let sensor = Vector::new(1.0, 2.0, 3.0);
 //!
 //! // Remap axes for a sensor mounted with Y pointing forward, X pointing right
 //! let body = axes_swap(sensor, AxesAlignment::PyNxPz);
@@ -21,7 +21,7 @@
 
 use core::fmt;
 
-use nalgebra::Vector3;
+use crate::math::Vector;
 
 /// Axes alignment describing the sensor axes relative to the body axes.
 ///
@@ -41,10 +41,10 @@ use nalgebra::Vector3;
 ///
 /// # Example
 /// ```
-/// use nalgebra::Vector3;
+/// use fusion_ahrs::Vector;
 /// use fusion_ahrs::{AxesAlignment, axes_swap};
 ///
-/// let sensor = Vector3::new(1.0, 0.0, 0.0);
+/// let sensor = Vector::new(1.0, 0.0, 0.0);
 ///
 /// // Identity alignment - no change
 /// let result = axes_swap(sensor, AxesAlignment::PxPyPz);
@@ -52,7 +52,7 @@ use nalgebra::Vector3;
 ///
 /// // Swap X and Y, negate X
 /// let result = axes_swap(sensor, AxesAlignment::PyNxPz);
-/// assert_eq!(result, Vector3::new(0.0, -1.0, 0.0));
+/// assert_eq!(result, Vector::new(0.0, -1.0, 0.0));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[allow(non_camel_case_types)]
@@ -113,14 +113,14 @@ impl AxesAlignment {
     ///
     /// # Example
     /// ```
-    /// use nalgebra::Vector3;
+    /// use fusion_ahrs::Vector;
     /// use fusion_ahrs::{AxesAlignment, axes_swap};
     ///
     /// // Find the alignment that maps sensor (1, 2, 3) onto body (3, 1, 2)
-    /// let sensor = Vector3::new(1.0, 2.0, 3.0);
+    /// let sensor = Vector::new(1.0, 2.0, 3.0);
     /// let alignment = AxesAlignment::ALL
     ///     .into_iter()
-    ///     .find(|&a| axes_swap(sensor, a) == Vector3::new(3.0, 1.0, 2.0))
+    ///     .find(|&a| axes_swap(sensor, a) == Vector::new(3.0, 1.0, 2.0))
     ///     .unwrap();
     /// assert_eq!(alignment.as_str(), "+Z+X+Y");
     /// ```
@@ -211,11 +211,11 @@ impl fmt::Display for AxesAlignment {
 ///
 /// # Example
 /// ```
-/// use nalgebra::Vector3;
+/// use fusion_ahrs::Vector;
 /// use fusion_ahrs::{AxesAlignment, axes_swap};
 ///
 /// // Gyroscope reading from a rotated sensor
-/// let gyro_sensor = Vector3::new(10.0, 20.0, 30.0);
+/// let gyro_sensor = Vector::new(10.0, 20.0, 30.0);
 ///
 /// // Sensor is mounted with Z pointing forward, X pointing up
 /// let gyro_body = axes_swap(gyro_sensor, AxesAlignment::PzPyNx);
@@ -223,32 +223,33 @@ impl fmt::Display for AxesAlignment {
 /// // Now gyro_body is in the correct body frame orientation
 /// ```
 #[inline]
-pub fn axes_swap(sensor: Vector3<f32>, alignment: AxesAlignment) -> Vector3<f32> {
+pub fn axes_swap(sensor: impl Into<Vector>, alignment: AxesAlignment) -> Vector {
+    let sensor = sensor.into();
     match alignment {
         AxesAlignment::PxPyPz => sensor,
-        AxesAlignment::PxNzPy => Vector3::new(sensor.x, -sensor.z, sensor.y),
-        AxesAlignment::PxNyNz => Vector3::new(sensor.x, -sensor.y, -sensor.z),
-        AxesAlignment::PxPzNy => Vector3::new(sensor.x, sensor.z, -sensor.y),
-        AxesAlignment::NxPyNz => Vector3::new(-sensor.x, sensor.y, -sensor.z),
-        AxesAlignment::NxPzPy => Vector3::new(-sensor.x, sensor.z, sensor.y),
-        AxesAlignment::NxNyPz => Vector3::new(-sensor.x, -sensor.y, sensor.z),
-        AxesAlignment::NxNzNy => Vector3::new(-sensor.x, -sensor.z, -sensor.y),
-        AxesAlignment::PyNxPz => Vector3::new(sensor.y, -sensor.x, sensor.z),
-        AxesAlignment::PyNzNx => Vector3::new(sensor.y, -sensor.z, -sensor.x),
-        AxesAlignment::PyPxNz => Vector3::new(sensor.y, sensor.x, -sensor.z),
-        AxesAlignment::PyPzPx => Vector3::new(sensor.y, sensor.z, sensor.x),
-        AxesAlignment::NyPxPz => Vector3::new(-sensor.y, sensor.x, sensor.z),
-        AxesAlignment::NyNzPx => Vector3::new(-sensor.y, -sensor.z, sensor.x),
-        AxesAlignment::NyNxNz => Vector3::new(-sensor.y, -sensor.x, -sensor.z),
-        AxesAlignment::NyPzNx => Vector3::new(-sensor.y, sensor.z, -sensor.x),
-        AxesAlignment::PzPyNx => Vector3::new(sensor.z, sensor.y, -sensor.x),
-        AxesAlignment::PzPxPy => Vector3::new(sensor.z, sensor.x, sensor.y),
-        AxesAlignment::PzNyPx => Vector3::new(sensor.z, -sensor.y, sensor.x),
-        AxesAlignment::PzNxNy => Vector3::new(sensor.z, -sensor.x, -sensor.y),
-        AxesAlignment::NzPyPx => Vector3::new(-sensor.z, sensor.y, sensor.x),
-        AxesAlignment::NzNxPy => Vector3::new(-sensor.z, -sensor.x, sensor.y),
-        AxesAlignment::NzNyNx => Vector3::new(-sensor.z, -sensor.y, -sensor.x),
-        AxesAlignment::NzPxNy => Vector3::new(-sensor.z, sensor.x, -sensor.y),
+        AxesAlignment::PxNzPy => Vector::new(sensor.x, -sensor.z, sensor.y),
+        AxesAlignment::PxNyNz => Vector::new(sensor.x, -sensor.y, -sensor.z),
+        AxesAlignment::PxPzNy => Vector::new(sensor.x, sensor.z, -sensor.y),
+        AxesAlignment::NxPyNz => Vector::new(-sensor.x, sensor.y, -sensor.z),
+        AxesAlignment::NxPzPy => Vector::new(-sensor.x, sensor.z, sensor.y),
+        AxesAlignment::NxNyPz => Vector::new(-sensor.x, -sensor.y, sensor.z),
+        AxesAlignment::NxNzNy => Vector::new(-sensor.x, -sensor.z, -sensor.y),
+        AxesAlignment::PyNxPz => Vector::new(sensor.y, -sensor.x, sensor.z),
+        AxesAlignment::PyNzNx => Vector::new(sensor.y, -sensor.z, -sensor.x),
+        AxesAlignment::PyPxNz => Vector::new(sensor.y, sensor.x, -sensor.z),
+        AxesAlignment::PyPzPx => Vector::new(sensor.y, sensor.z, sensor.x),
+        AxesAlignment::NyPxPz => Vector::new(-sensor.y, sensor.x, sensor.z),
+        AxesAlignment::NyNzPx => Vector::new(-sensor.y, -sensor.z, sensor.x),
+        AxesAlignment::NyNxNz => Vector::new(-sensor.y, -sensor.x, -sensor.z),
+        AxesAlignment::NyPzNx => Vector::new(-sensor.y, sensor.z, -sensor.x),
+        AxesAlignment::PzPyNx => Vector::new(sensor.z, sensor.y, -sensor.x),
+        AxesAlignment::PzPxPy => Vector::new(sensor.z, sensor.x, sensor.y),
+        AxesAlignment::PzNyPx => Vector::new(sensor.z, -sensor.y, sensor.x),
+        AxesAlignment::PzNxNy => Vector::new(sensor.z, -sensor.x, -sensor.y),
+        AxesAlignment::NzPyPx => Vector::new(-sensor.z, sensor.y, sensor.x),
+        AxesAlignment::NzNxPy => Vector::new(-sensor.z, -sensor.x, sensor.y),
+        AxesAlignment::NzNyNx => Vector::new(-sensor.z, -sensor.y, -sensor.x),
+        AxesAlignment::NzPxNy => Vector::new(-sensor.z, sensor.x, -sensor.y),
     }
 }
 
@@ -258,15 +259,15 @@ mod tests {
 
     #[test]
     fn test_identity_alignment() {
-        let sensor = Vector3::new(1.0, 2.0, 3.0);
+        let sensor = Vector::new(1.0, 2.0, 3.0);
         let result = axes_swap(sensor, AxesAlignment::PxPyPz);
         assert_eq!(result, sensor);
     }
 
     #[test]
     fn test_all_alignments_preserve_magnitude() {
-        let sensor = Vector3::new(1.0, 2.0, 3.0);
-        let original_magnitude = sensor.magnitude();
+        let sensor = Vector::new(1.0, 2.0, 3.0);
+        let original_magnitude = sensor.norm();
 
         let alignments = [
             AxesAlignment::PxPyPz,
@@ -297,7 +298,7 @@ mod tests {
 
         for alignment in alignments {
             let result = axes_swap(sensor, alignment);
-            let result_magnitude = result.magnitude();
+            let result_magnitude = result.norm();
             assert!(
                 (result_magnitude - original_magnitude).abs() < 1e-6,
                 "Alignment {:?} changed magnitude from {} to {}",
@@ -310,52 +311,52 @@ mod tests {
 
     #[test]
     fn test_specific_alignments() {
-        let sensor = Vector3::new(1.0, 2.0, 3.0);
+        let sensor = Vector::new(1.0, 2.0, 3.0);
 
         // +X-Z+Y: x'=x, y'=-z, z'=y
         let result = axes_swap(sensor, AxesAlignment::PxNzPy);
-        assert_eq!(result, Vector3::new(1.0, -3.0, 2.0));
+        assert_eq!(result, Vector::new(1.0, -3.0, 2.0));
 
         // +Y-X+Z: x'=y, y'=-x, z'=z
         let result = axes_swap(sensor, AxesAlignment::PyNxPz);
-        assert_eq!(result, Vector3::new(2.0, -1.0, 3.0));
+        assert_eq!(result, Vector::new(2.0, -1.0, 3.0));
 
         // -X-Y+Z: x'=-x, y'=-y, z'=z
         let result = axes_swap(sensor, AxesAlignment::NxNyPz);
-        assert_eq!(result, Vector3::new(-1.0, -2.0, 3.0));
+        assert_eq!(result, Vector::new(-1.0, -2.0, 3.0));
 
         // +Z+X+Y: x'=z, y'=x, z'=y
         let result = axes_swap(sensor, AxesAlignment::PzPxPy);
-        assert_eq!(result, Vector3::new(3.0, 1.0, 2.0));
+        assert_eq!(result, Vector::new(3.0, 1.0, 2.0));
     }
 
     #[test]
     fn test_zero_vector() {
-        let sensor = Vector3::zeros();
+        let sensor = Vector::ZERO;
         for alignment in [
             AxesAlignment::PxPyPz,
             AxesAlignment::PyNxPz,
             AxesAlignment::NzNyNx,
         ] {
             let result = axes_swap(sensor, alignment);
-            assert_eq!(result, Vector3::zeros());
+            assert_eq!(result, Vector::ZERO);
         }
     }
 
     #[test]
     fn test_unit_vectors() {
-        let x = Vector3::new(1.0, 0.0, 0.0);
-        let y = Vector3::new(0.0, 1.0, 0.0);
-        let z = Vector3::new(0.0, 0.0, 1.0);
+        let x = Vector::new(1.0, 0.0, 0.0);
+        let y = Vector::new(0.0, 1.0, 0.0);
+        let z = Vector::new(0.0, 0.0, 1.0);
 
         // PyNxPz: x'=y, y'=-x, z'=z
         assert_eq!(
             axes_swap(x, AxesAlignment::PyNxPz),
-            Vector3::new(0.0, -1.0, 0.0)
+            Vector::new(0.0, -1.0, 0.0)
         );
         assert_eq!(
             axes_swap(y, AxesAlignment::PyNxPz),
-            Vector3::new(1.0, 0.0, 0.0)
+            Vector::new(1.0, 0.0, 0.0)
         );
         assert_eq!(axes_swap(z, AxesAlignment::PyNxPz), z);
     }
@@ -373,9 +374,9 @@ mod tests {
         ];
 
         let test_vectors = [
-            Vector3::new(1.0, 2.0, 3.0),
-            Vector3::new(-5.0, 0.0, 7.0),
-            Vector3::new(0.1, -0.2, 0.3),
+            Vector::new(1.0, 2.0, 3.0),
+            Vector::new(-5.0, 0.0, 7.0),
+            Vector::new(0.1, -0.2, 0.3),
         ];
 
         for (forward, inverse) in inverse_pairs {
@@ -383,7 +384,7 @@ mod tests {
                 let transformed = axes_swap(v, forward);
                 let recovered = axes_swap(transformed, inverse);
                 assert!(
-                    (recovered - v).magnitude() < 1e-6,
+                    (recovered - v).norm() < 1e-6,
                     "Round-trip failed for {:?}: {:?} -> {:?} -> {:?}",
                     forward,
                     v,

@@ -1,5 +1,4 @@
-use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
-use nalgebra::Vector3;
+use fusion_ahrs::{Ahrs, AhrsSettings, Convention, Euler, Matrix, Quaternion, Vector};
 
 const EPSILON: f32 = 1e-6;
 
@@ -42,7 +41,7 @@ fn test_gravity_calculation() {
     let gravity_nwu = ahrs_nwu.gravity();
 
     // At identity quaternion, gravity should point up in Z for NWU
-    assert!((gravity_nwu.magnitude() - 1.0).abs() < EPSILON);
+    assert!((gravity_nwu.norm() - 1.0).abs() < EPSILON);
     assert!((gravity_nwu.z - 1.0).abs() < EPSILON);
     assert!(gravity_nwu.x.abs() < EPSILON);
     assert!(gravity_nwu.y.abs() < EPSILON);
@@ -56,7 +55,7 @@ fn test_gravity_calculation() {
     let gravity_enu = ahrs_enu.gravity();
 
     // Should be same for identity quaternion
-    assert!((gravity_enu.magnitude() - 1.0).abs() < EPSILON);
+    assert!((gravity_enu.norm() - 1.0).abs() < EPSILON);
     assert!((gravity_enu.z - 1.0).abs() < EPSILON);
 
     // Test NED convention
@@ -68,7 +67,7 @@ fn test_gravity_calculation() {
     let gravity_ned = ahrs_ned.gravity();
 
     // In NED, gravity points down (negative Z)
-    assert!((gravity_ned.magnitude() - 1.0).abs() < EPSILON);
+    assert!((gravity_ned.norm() - 1.0).abs() < EPSILON);
     assert!((gravity_ned.z + 1.0).abs() < EPSILON); // Should be -1
 }
 
@@ -78,13 +77,13 @@ fn test_quaternion_integration() {
     let mut ahrs = Ahrs::new();
 
     // Small rotation around Z axis
-    let gyroscope = Vector3::new(0.0, 0.0, 10.0); // 10 deg/s around Z
-    let accelerometer = Vector3::new(0.0, 0.0, 1.0); // Static
-    let magnetometer = Vector3::new(1.0, 0.0, 0.0); // North
+    let gyroscope = Vector::new(0.0, 0.0, 10.0); // 10 deg/s around Z
+    let accelerometer = Vector::new(0.0, 0.0, 1.0); // Static
+    let magnetometer = Vector::new(1.0, 0.0, 0.0); // North
 
     // Complete initialization first (3+ seconds)
     for _ in 0..400 {
-        ahrs.update(Vector3::zeros(), accelerometer, magnetometer);
+        ahrs.update(Vector::ZERO, accelerometer, magnetometer);
     }
     assert!(!ahrs.flags().startup);
 
@@ -93,14 +92,14 @@ fn test_quaternion_integration() {
         ahrs.update(gyroscope, accelerometer, magnetometer);
     }
 
-    let (roll, pitch, yaw) = ahrs.quaternion().euler_angles();
-    let yaw_deg = yaw.to_degrees();
+    let Euler { roll, pitch, yaw } = ahrs.quaternion().to_euler();
+    let yaw_deg = yaw;
 
     // Should have rotated approximately 10 degrees around Z
     // Allow some tolerance due to filtering effects
     assert!(yaw_deg.abs() < 15.0, "Yaw: {} degrees", yaw_deg);
-    assert!(roll.to_degrees().abs() < 2.0, "Roll should be minimal");
-    assert!(pitch.to_degrees().abs() < 2.0, "Pitch should be minimal");
+    assert!(roll.abs() < 2.0, "Roll should be minimal");
+    assert!(pitch.abs() < 2.0, "Pitch should be minimal");
 }
 
 /// Test accelerometer rejection mechanism
@@ -114,9 +113,9 @@ fn test_accelerometer_rejection() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Complete initialization
-    let gyro = Vector3::zeros();
-    let normal_accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let normal_accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, normal_accel, mag);
@@ -124,7 +123,7 @@ fn test_accelerometer_rejection() {
     assert!(!ahrs.flags().startup);
 
     // Apply large acceleration (should be rejected)
-    let large_accel = Vector3::new(2.0, 2.0, 1.0);
+    let large_accel = Vector::new(2.0, 2.0, 1.0);
 
     let mut rejection_triggered = false;
     for _i in 0..100 {
@@ -154,9 +153,9 @@ fn test_magnetometer_rejection() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Complete initialization
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let normal_mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let normal_mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, accel, normal_mag);
@@ -165,7 +164,7 @@ fn test_magnetometer_rejection() {
 
     // Apply magnetic interference (should cause large error)
     // The cross product preprocessing in the algorithm means we need a different test case
-    let interfered_mag = Vector3::new(0.0, 1.0, 0.0); // East instead of North
+    let interfered_mag = Vector::new(0.0, 1.0, 0.0); // East instead of North
 
     let mut rejection_triggered = false;
     for _i in 0..100 {
@@ -194,9 +193,9 @@ fn test_gyroscope_overrange() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Complete initialization
-    let normal_gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let normal_gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(normal_gyro, accel, mag);
@@ -204,7 +203,7 @@ fn test_gyroscope_overrange() {
     assert!(!ahrs.flags().startup);
 
     // Apply gyroscope overflow
-    let overflow_gyro = Vector3::new(600.0, 0.0, 0.0); // Exceeds limit
+    let overflow_gyro = Vector::new(600.0, 0.0, 0.0); // Exceeds limit
     ahrs.update(overflow_gyro, accel, mag);
 
     assert!(ahrs.flags().overrange_recovery);
@@ -226,7 +225,7 @@ fn test_coordinate_conventions() {
         // Test that gravity calculation is consistent
         let gravity = ahrs.gravity();
         assert!(
-            (gravity.magnitude() - 1.0).abs() < EPSILON,
+            (gravity.norm() - 1.0).abs() < EPSILON,
             "Gravity magnitude should be 1.0 for {:?}",
             convention
         );
@@ -251,8 +250,8 @@ fn test_coordinate_conventions() {
         }
 
         // Test that linear acceleration is calculated correctly
-        let accel_input = Vector3::new(0.0, 0.0, 1.0);
-        ahrs.update(Vector3::zeros(), accel_input, Vector3::new(1.0, 0.0, 0.0));
+        let accel_input = Vector::new(0.0, 0.0, 1.0);
+        ahrs.update(Vector::ZERO, accel_input, Vector::new(1.0, 0.0, 0.0));
 
         let linear_accel = ahrs.linear_acceleration();
 
@@ -260,7 +259,7 @@ fn test_coordinate_conventions() {
         match convention {
             Convention::Nwu | Convention::Enu => {
                 assert!(
-                    linear_accel.magnitude() < 0.1,
+                    linear_accel.norm() < 0.1,
                     "Linear acceleration should be small for {:?}",
                     convention
                 );
@@ -284,9 +283,9 @@ fn test_initialization_ramping() {
 
     assert!(ahrs.flags().startup);
 
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     // Run for exactly 3 seconds at 100Hz to complete initialization
     for i in 0..300 {
@@ -309,9 +308,9 @@ fn test_numerical_precision() {
     let mut ahrs = Ahrs::new();
 
     // Complete initialization with static readings
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
 
     for _ in 0..400 {
         ahrs.update(gyro, accel, mag);
@@ -320,12 +319,12 @@ fn test_numerical_precision() {
     // Quaternion should be very close to identity
     let quat = ahrs.quaternion();
     assert!((quat.w - 1.0).abs() < EPSILON, "W component should be ~1.0");
-    assert!(quat.i.abs() < EPSILON, "X component should be ~0.0");
-    assert!(quat.j.abs() < EPSILON, "Y component should be ~0.0");
-    assert!(quat.k.abs() < EPSILON, "Z component should be ~0.0");
+    assert!(quat.x.abs() < EPSILON, "X component should be ~0.0");
+    assert!(quat.y.abs() < EPSILON, "Y component should be ~0.0");
+    assert!(quat.z.abs() < EPSILON, "Z component should be ~0.0");
 
     // Verify quaternion is normalized
-    let norm = (quat.w * quat.w + quat.i * quat.i + quat.j * quat.j + quat.k * quat.k).sqrt();
+    let norm = (quat.w * quat.w + quat.x * quat.x + quat.y * quat.y + quat.z * quat.z).sqrt();
     assert!(
         (norm - 1.0).abs() < EPSILON,
         "Quaternion should be normalized"
@@ -350,9 +349,9 @@ fn test_feedback_scaling_parity() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Skip initialization by running enough updates
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
     for _ in 0..400 {
         ahrs.update(gyro, accel, mag);
     }
@@ -360,23 +359,27 @@ fn test_feedback_scaling_parity() {
 
     // Now introduce a tilt error
     // Start from identity and apply tilted accelerometer
-    ahrs.set_quaternion(nalgebra::UnitQuaternion::identity());
+    ahrs.set_quaternion(Quaternion::IDENTITY);
 
     // Tilted accelerometer (30 degrees pitch)
-    let tilted_accel = Vector3::new(0.5, 0.0, 0.866); // sin(30°), 0, cos(30°)
+    let tilted_accel = Vector::new(0.5, 0.0, 0.866); // sin(30°), 0, cos(30°)
 
     // Single update with tilted accelerometer
     ahrs.update(gyro, tilted_accel, mag);
 
     // Get the quaternion after one update
     let quat_after = ahrs.quaternion();
-    let (roll_after, pitch_after, _) = quat_after.euler_angles();
+    let Euler {
+        roll: roll_after,
+        pitch: pitch_after,
+        yaw: _,
+    } = quat_after.to_euler();
 
     // With gain=1.0 and dt=0.01, the correction should be noticeable
     // The pitch error is ~30°, half_feedback magnitude ≈ 0.5 * sin(30°) = 0.25
     // With correct feedback (no extra 0.5), pitch correction ≈ 0.25 * 1.0 * 0.01 rad ≈ 0.14°
     // With buggy feedback (extra 0.5), correction would be half: ≈ 0.07°
-    let pitch_after_deg = pitch_after.to_degrees();
+    let pitch_after_deg = pitch_after;
 
     // After multiple updates, the difference becomes more apparent
     for _ in 0..50 {
@@ -384,8 +387,12 @@ fn test_feedback_scaling_parity() {
     }
 
     let quat_final = ahrs.quaternion();
-    let (_, pitch_final, _) = quat_final.euler_angles();
-    let pitch_deg = pitch_final.to_degrees();
+    let Euler {
+        roll: _,
+        pitch: pitch_final,
+        yaw: _,
+    } = quat_final.to_euler();
+    let pitch_deg = pitch_final;
 
     // With correct feedback, pitch should converge toward the accelerometer indication (~30°)
     // After 51 updates with gain=1.0, with CORRECT feedback we expect pitch > 10°
@@ -400,9 +407,9 @@ fn test_feedback_scaling_parity() {
         pitch_after_deg
     );
     assert!(
-        roll_after.to_degrees().abs() < 5.0,
+        roll_after.abs() < 5.0,
         "Roll should remain small, got {:.2}°",
-        roll_after.to_degrees()
+        roll_after
     );
 }
 
@@ -421,9 +428,9 @@ fn test_internal_states_error_uses_asin() {
     let mut ahrs = Ahrs::with_settings(settings);
 
     // Complete initialization
-    let gyro = Vector3::zeros();
-    let accel = Vector3::new(0.0, 0.0, 1.0);
-    let mag = Vector3::new(1.0, 0.0, 0.0);
+    let gyro = Vector::ZERO;
+    let accel = Vector::new(0.0, 0.0, 1.0);
+    let mag = Vector::new(1.0, 0.0, 0.0);
     for _ in 0..400 {
         ahrs.update(gyro, accel, mag);
     }
@@ -432,7 +439,7 @@ fn test_internal_states_error_uses_asin() {
     // Tilt accelerometer by 45 degrees
     let angle_deg = 45.0_f32;
     let angle_rad = angle_deg.to_radians();
-    let tilted_accel = Vector3::new(angle_rad.sin(), 0.0, angle_rad.cos());
+    let tilted_accel = Vector::new(angle_rad.sin(), 0.0, angle_rad.cos());
 
     ahrs.update(gyro, tilted_accel, mag);
 
@@ -460,7 +467,7 @@ fn test_internal_states_error_uses_asin() {
     // Test with a larger angle where the difference is more pronounced
     let angle_deg_large = 60.0_f32;
     let angle_rad_large = angle_deg_large.to_radians();
-    let tilted_accel_large = Vector3::new(angle_rad_large.sin(), 0.0, angle_rad_large.cos());
+    let tilted_accel_large = Vector::new(angle_rad_large.sin(), 0.0, angle_rad_large.cos());
 
     ahrs.update(gyro, tilted_accel_large, mag);
     let states_large = ahrs.internal_states();
@@ -481,26 +488,25 @@ fn test_internal_states_error_uses_asin() {
 #[test]
 fn test_calibration_order_of_operations() {
     use fusion_ahrs::calibration::calibrate_inertial;
-    use nalgebra::Matrix3;
 
-    let uncalibrated = Vector3::new(100.0, 200.0, 300.0);
-    let misalignment = Matrix3::identity();
-    let sensitivity = Vector3::new(0.5, 0.5, 0.5); // Non-unity to reveal order difference
-    let offset = Vector3::new(10.0, 20.0, 30.0);
+    let uncalibrated = Vector::new(100.0, 200.0, 300.0);
+    let misalignment = Matrix::IDENTITY;
+    let sensitivity = Vector::new(0.5, 0.5, 0.5); // Non-unity to reveal order difference
+    let offset = Vector::new(10.0, 20.0, 30.0);
 
     let calibrated = calibrate_inertial(uncalibrated, misalignment, sensitivity, offset);
 
     // C order: (uncalibrated - offset) * sensitivity
     // (100-10, 200-20, 300-30) * (0.5, 0.5, 0.5) = (90, 180, 270) * 0.5 = (45, 90, 135)
-    let expected_c_order = Vector3::new(45.0, 90.0, 135.0);
+    let expected_c_order = Vector::new(45.0, 90.0, 135.0);
 
     // Wrong order would give: uncalibrated * sensitivity - offset
     // (100, 200, 300) * (0.5, 0.5, 0.5) - (10, 20, 30) = (50, 100, 150) - (10, 20, 30) = (40, 80, 120)
-    let wrong_order_result = Vector3::new(40.0, 80.0, 120.0);
+    let wrong_order_result = Vector::new(40.0, 80.0, 120.0);
 
     // Verify we get the C-compatible result, not the wrong order
     assert!(
-        (calibrated - expected_c_order).magnitude() < EPSILON,
+        (calibrated - expected_c_order).norm() < EPSILON,
         "Calibration should follow C order: (uncalibrated - offset) * sensitivity.\n\
          Expected: {:?}\n\
          Got: {:?}",
@@ -510,7 +516,7 @@ fn test_calibration_order_of_operations() {
 
     // Explicitly verify we don't get the wrong order result
     assert!(
-        (calibrated - wrong_order_result).magnitude() > 1.0,
+        (calibrated - wrong_order_result).norm() > 1.0,
         "Calibration should NOT match wrong order result {:?}",
         wrong_order_result
     );

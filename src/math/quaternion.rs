@@ -44,6 +44,7 @@ impl Quaternion {
     /// let q = Quaternion::new(1.0, 0.0, 0.0, 0.0);
     /// assert_eq!(q, Quaternion::IDENTITY);
     /// ```
+    #[inline]
     pub const fn new(w: f32, x: f32, y: f32, z: f32) -> Self {
         Self { w, x, y, z }
     }
@@ -61,6 +62,7 @@ impl Quaternion {
     /// assert!((back.pitch - 20.0).abs() < 1e-3);
     /// assert!((back.yaw - 30.0).abs() < 1e-3);
     /// ```
+    #[inline]
     pub fn from_euler(euler: Euler) -> Self {
         let half_roll = 0.5 * euler.roll * DEG_TO_RAD;
         let half_pitch = 0.5 * euler.pitch * DEG_TO_RAD;
@@ -79,11 +81,13 @@ impl Quaternion {
     }
 
     /// Returns the sum of the components.
+    #[inline]
     pub fn sum(self) -> f32 {
         self.w + self.x + self.y + self.z
     }
 
     /// Returns the Hadamard (element-wise) product.
+    #[inline]
     pub fn hadamard(self, rhs: Quaternion) -> Quaternion {
         Quaternion::new(
             self.w * rhs.w,
@@ -103,6 +107,7 @@ impl Quaternion {
     /// let v = Vector::new(1.0, 2.0, 3.0);
     /// assert_eq!(Quaternion::IDENTITY.vector_product(v), Quaternion::new(0.0, 1.0, 2.0, 3.0));
     /// ```
+    #[inline]
     pub fn vector_product(self, v: Vector) -> Quaternion {
         let q = self;
         Quaternion::new(
@@ -122,11 +127,13 @@ impl Quaternion {
     /// let q = Quaternion::new(0.5, 0.5, 0.5, 0.5);
     /// assert_eq!(q * q.conjugate(), Quaternion::IDENTITY);
     /// ```
+    #[inline]
     pub fn conjugate(self) -> Quaternion {
         Quaternion::new(self.w, -self.x, -self.y, -self.z)
     }
 
     /// Returns the squared norm.
+    #[inline]
     pub fn norm_squared(self) -> f32 {
         self.hadamard(self).sum()
     }
@@ -139,12 +146,15 @@ impl Quaternion {
     ///
     /// assert_eq!(Quaternion::new(1.0, 1.0, 1.0, 1.0).norm(), 2.0);
     /// ```
+    #[inline]
     pub fn norm(self) -> f32 {
         libm::sqrtf(self.norm_squared())
     }
 
     /// Returns the unit quaternion, multiplying by the reciprocal of the
-    /// norm as the C library does.
+    /// norm. Matches C's `FusionQuaternionNormalise` built with
+    /// `FUSION_USE_NORMAL_SQRT` (the default C build uses a fast approximate
+    /// inverse square root instead).
     ///
     /// # Example
     /// ```
@@ -153,6 +163,7 @@ impl Quaternion {
     /// let q = Quaternion::new(2.0, 0.0, 0.0, 0.0).normalize();
     /// assert_eq!(q, Quaternion::IDENTITY);
     /// ```
+    #[inline]
     pub fn normalize(self) -> Quaternion {
         self * (1.0 / self.norm())
     }
@@ -166,6 +177,7 @@ impl Quaternion {
     ///
     /// assert_eq!(Quaternion::IDENTITY.to_matrix(), Matrix::IDENTITY);
     /// ```
+    #[inline]
     pub fn to_matrix(self) -> Matrix {
         let q = self;
         let two_w = 2.0 * q.w;
@@ -193,6 +205,7 @@ impl Quaternion {
     ///
     /// assert_eq!(Quaternion::IDENTITY.to_euler(), Euler::new(0.0, 0.0, 0.0));
     /// ```
+    #[inline]
     pub fn to_euler(self) -> Euler {
         let q = self;
         Euler::new(
@@ -212,12 +225,14 @@ impl Quaternion {
     /// let v = q.rotate(Vector::new(0.0, 1.0, 0.0));
     /// assert!((v.z - 1.0).abs() < 1e-6);
     /// ```
+    #[inline]
     pub fn rotate(self, v: Vector) -> Vector {
         self.to_matrix() * v
     }
 }
 
 impl Default for Quaternion {
+    #[inline]
     fn default() -> Self {
         Quaternion::IDENTITY
     }
@@ -226,6 +241,7 @@ impl Default for Quaternion {
 impl Add for Quaternion {
     type Output = Quaternion;
 
+    #[inline]
     fn add(self, rhs: Quaternion) -> Quaternion {
         Quaternion::new(
             self.w + rhs.w,
@@ -239,6 +255,7 @@ impl Add for Quaternion {
 impl Mul<f32> for Quaternion {
     type Output = Quaternion;
 
+    #[inline]
     fn mul(self, rhs: f32) -> Quaternion {
         Quaternion::new(self.w * rhs, self.x * rhs, self.y * rhs, self.z * rhs)
     }
@@ -248,6 +265,7 @@ impl Mul<f32> for Quaternion {
 impl Mul for Quaternion {
     type Output = Quaternion;
 
+    #[inline]
     fn mul(self, rhs: Quaternion) -> Quaternion {
         let (a, b) = (self, rhs);
         Quaternion::new(
@@ -261,6 +279,7 @@ impl Mul for Quaternion {
 
 /// Scalar first: `[w, x, y, z]`.
 impl From<[f32; 4]> for Quaternion {
+    #[inline]
     fn from([w, x, y, z]: [f32; 4]) -> Self {
         Quaternion::new(w, x, y, z)
     }
@@ -268,6 +287,7 @@ impl From<[f32; 4]> for Quaternion {
 
 /// Scalar first: `[w, x, y, z]`.
 impl From<Quaternion> for [f32; 4] {
+    #[inline]
     fn from(q: Quaternion) -> Self {
         [q.w, q.x, q.y, q.z]
     }

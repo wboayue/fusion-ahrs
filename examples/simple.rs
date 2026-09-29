@@ -12,8 +12,7 @@
 //!
 //! Run with: `cargo run --example simple`
 
-use fusion_ahrs::Ahrs;
-use nalgebra::Vector3;
+use fusion_ahrs::{Ahrs, Euler, Vector};
 use plotters::prelude::*;
 use serde::Deserialize;
 use std::error::Error;
@@ -71,8 +70,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     for (i, data) in sensor_data.iter().enumerate() {
-        let gyroscope = Vector3::new(data.gyro_x, data.gyro_y, data.gyro_z);
-        let accelerometer = Vector3::new(data.accel_x, data.accel_y, data.accel_z);
+        let gyroscope = Vector::new(data.gyro_x, data.gyro_y, data.gyro_z);
+        let accelerometer = Vector::new(data.accel_x, data.accel_y, data.accel_z);
 
         // Update AHRS without magnetometer - heading will drift over time
         // but roll and pitch will remain accurate
@@ -80,18 +79,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Extract orientation as quaternion and convert to Euler angles
         let quaternion = ahrs.quaternion();
-        let (roll, pitch, yaw) = quaternion.euler_angles();
+        let Euler { roll, pitch, yaw } = quaternion.to_euler();
 
-        euler_angles.push((roll.to_degrees(), pitch.to_degrees(), yaw.to_degrees()));
+        euler_angles.push((roll, pitch, yaw));
 
         // Print progress every 1000 samples
         if i % 1000 == 0 {
             println!(
                 "Processed {} samples, current orientation: roll={:.1}°, pitch={:.1}°, yaw={:.1}°",
-                i,
-                roll.to_degrees(),
-                pitch.to_degrees(),
-                yaw.to_degrees()
+                i, roll, pitch, yaw
             );
         }
     }

@@ -1,10 +1,7 @@
 //! Tilt-compensated compass implementation for the Fusion AHRS library
 
-use crate::math::{RAD_TO_DEG, Vector3Ext};
+use crate::math::{RAD_TO_DEG, Vector};
 use crate::types::Convention;
-use nalgebra::Vector3;
-#[allow(unused_imports)]
-use nalgebra::{ComplexField, RealField}; // Required for no_std float methods
 
 /// Calculate tilt-compensated magnetic heading
 ///
@@ -26,19 +23,20 @@ use nalgebra::{ComplexField, RealField}; // Required for no_std float methods
 ///
 /// # Example
 /// ```
-/// use nalgebra::Vector3;
+/// use fusion_ahrs::Vector;
 /// use fusion_ahrs::{Convention, compass::calculate_heading};
 ///
-/// let accel = Vector3::new(0.0, 0.0, 1.0); // Level device (NWU)
-/// let mag = Vector3::new(1.0, 0.0, 0.0);   // Pointing North (NWU)
+/// let accel = Vector::new(0.0, 0.0, 1.0); // Level device (NWU)
+/// let mag = Vector::new(1.0, 0.0, 0.0);   // Pointing North (NWU)
 /// let heading = calculate_heading(Convention::Nwu, accel, mag);
 /// assert!((heading - 0.0).abs() < 1.0);    // Should be close to 0° (North)
 /// ```
 pub fn calculate_heading(
     convention: Convention,
-    accelerometer: Vector3<f32>,
-    magnetometer: Vector3<f32>,
+    accelerometer: impl Into<Vector>,
+    magnetometer: impl Into<Vector>,
 ) -> f32 {
+    let (accelerometer, magnetometer) = (accelerometer.into(), magnetometer.into());
     match convention {
         Convention::Nwu => calculate_heading_nwu(accelerometer, magnetometer),
         Convention::Enu => calculate_heading_enu(accelerometer, magnetometer),
@@ -47,26 +45,26 @@ pub fn calculate_heading(
 }
 
 /// Calculate heading for NWU (North-West-Up) convention
-fn calculate_heading_nwu(accelerometer: Vector3<f32>, magnetometer: Vector3<f32>) -> f32 {
-    let west = accelerometer.cross(&magnetometer).safe_normalize();
-    let north = west.cross(&accelerometer).safe_normalize();
-    west.x.atan2(north.x) * RAD_TO_DEG
+fn calculate_heading_nwu(accelerometer: Vector, magnetometer: Vector) -> f32 {
+    let west = accelerometer.cross(magnetometer).normalize();
+    let north = west.cross(accelerometer).normalize();
+    libm::atan2f(west.x, north.x) * RAD_TO_DEG
 }
 
 /// Calculate heading for ENU (East-North-Up) convention
-fn calculate_heading_enu(accelerometer: Vector3<f32>, magnetometer: Vector3<f32>) -> f32 {
-    let west = accelerometer.cross(&magnetometer).safe_normalize();
-    let north = west.cross(&accelerometer).safe_normalize();
+fn calculate_heading_enu(accelerometer: Vector, magnetometer: Vector) -> f32 {
+    let west = accelerometer.cross(magnetometer).normalize();
+    let north = west.cross(accelerometer).normalize();
     let east = -west;
-    north.x.atan2(east.x) * RAD_TO_DEG
+    libm::atan2f(north.x, east.x) * RAD_TO_DEG
 }
 
 /// Calculate heading for NED (North-East-Down) convention
-fn calculate_heading_ned(accelerometer: Vector3<f32>, magnetometer: Vector3<f32>) -> f32 {
+fn calculate_heading_ned(accelerometer: Vector, magnetometer: Vector) -> f32 {
     let up = -accelerometer;
-    let west = up.cross(&magnetometer).safe_normalize();
-    let north = west.cross(&up).safe_normalize();
-    west.x.atan2(north.x) * RAD_TO_DEG
+    let west = up.cross(magnetometer).normalize();
+    let north = west.cross(up).normalize();
+    libm::atan2f(west.x, north.x) * RAD_TO_DEG
 }
 
 #[cfg(test)]
@@ -76,10 +74,10 @@ mod tests {
     #[test]
     fn test_compass_nwu_cardinal_directions() {
         // Test all cardinal directions for NWU convention
-        let level_accel = Vector3::new(0.0, 0.0, 1.0); // Pointing up (gravity down)
+        let level_accel = Vector::new(0.0, 0.0, 1.0); // Pointing up (gravity down)
 
         // North: magnetometer points north
-        let north_mag = Vector3::new(1.0, 0.0, 0.0);
+        let north_mag = Vector::new(1.0, 0.0, 0.0);
         let heading = calculate_heading(Convention::Nwu, level_accel, north_mag);
         assert!(
             (heading - 0.0).abs() < 1.0,
@@ -88,7 +86,7 @@ mod tests {
         );
 
         // East: magnetometer points east (negative Y in NWU)
-        let east_mag = Vector3::new(0.0, -1.0, 0.0);
+        let east_mag = Vector::new(0.0, -1.0, 0.0);
         let heading = calculate_heading(Convention::Nwu, level_accel, east_mag);
         assert!(
             (heading - 90.0).abs() < 1.0,
@@ -97,7 +95,7 @@ mod tests {
         );
 
         // South: magnetometer points south
-        let south_mag = Vector3::new(-1.0, 0.0, 0.0);
+        let south_mag = Vector::new(-1.0, 0.0, 0.0);
         let heading = calculate_heading(Convention::Nwu, level_accel, south_mag);
         let _expected_south = if heading > 0.0 { 180.0 } else { -180.0 };
         assert!(
@@ -107,7 +105,7 @@ mod tests {
         );
 
         // West: magnetometer points west (positive Y in NWU)
-        let west_mag = Vector3::new(0.0, 1.0, 0.0);
+        let west_mag = Vector::new(0.0, 1.0, 0.0);
         let heading = calculate_heading(Convention::Nwu, level_accel, west_mag);
         assert!(
             (heading - (-90.0)).abs() < 1.0,
@@ -119,10 +117,10 @@ mod tests {
     #[test]
     fn test_compass_enu_cardinal_directions() {
         // Test all cardinal directions for ENU convention
-        let level_accel = Vector3::new(0.0, 0.0, 1.0); // Pointing up
+        let level_accel = Vector::new(0.0, 0.0, 1.0); // Pointing up
 
         // North: magnetometer points north (positive Y in ENU)
-        let north_mag = Vector3::new(0.0, 1.0, 0.0);
+        let north_mag = Vector::new(0.0, 1.0, 0.0);
         let heading = calculate_heading(Convention::Enu, level_accel, north_mag);
         assert!(
             (heading - 0.0).abs() < 1.0,
@@ -131,7 +129,7 @@ mod tests {
         );
 
         // East: magnetometer points east (positive X in ENU)
-        let east_mag = Vector3::new(1.0, 0.0, 0.0);
+        let east_mag = Vector::new(1.0, 0.0, 0.0);
         let heading = calculate_heading(Convention::Enu, level_accel, east_mag);
         assert!(
             (heading - 90.0).abs() < 1.0,
@@ -140,7 +138,7 @@ mod tests {
         );
 
         // South: magnetometer points south (negative Y in ENU)
-        let south_mag = Vector3::new(0.0, -1.0, 0.0);
+        let south_mag = Vector::new(0.0, -1.0, 0.0);
         let heading = calculate_heading(Convention::Enu, level_accel, south_mag);
         assert!(
             (heading.abs() - 180.0).abs() < 1.0,
@@ -149,7 +147,7 @@ mod tests {
         );
 
         // West: magnetometer points west (negative X in ENU)
-        let west_mag = Vector3::new(-1.0, 0.0, 0.0);
+        let west_mag = Vector::new(-1.0, 0.0, 0.0);
         let heading = calculate_heading(Convention::Enu, level_accel, west_mag);
         assert!(
             (heading - (-90.0)).abs() < 1.0,
@@ -161,10 +159,10 @@ mod tests {
     #[test]
     fn test_compass_ned_cardinal_directions() {
         // Test all cardinal directions for NED convention
-        let level_accel = Vector3::new(0.0, 0.0, -1.0); // Pointing down (NED gravity)
+        let level_accel = Vector::new(0.0, 0.0, -1.0); // Pointing down (NED gravity)
 
         // North: magnetometer points north (positive X in NED)
-        let north_mag = Vector3::new(1.0, 0.0, 0.0);
+        let north_mag = Vector::new(1.0, 0.0, 0.0);
         let heading = calculate_heading(Convention::Ned, level_accel, north_mag);
         assert!(
             (heading - 0.0).abs() < 1.0,
@@ -173,7 +171,7 @@ mod tests {
         );
 
         // East: magnetometer points east (positive Y in NED)
-        let east_mag = Vector3::new(0.0, 1.0, 0.0);
+        let east_mag = Vector::new(0.0, 1.0, 0.0);
         let heading = calculate_heading(Convention::Ned, level_accel, east_mag);
         // NED may have different sign convention, allow both ±90°
         assert!(
@@ -183,7 +181,7 @@ mod tests {
         );
 
         // South: magnetometer points south (negative X in NED)
-        let south_mag = Vector3::new(-1.0, 0.0, 0.0);
+        let south_mag = Vector::new(-1.0, 0.0, 0.0);
         let heading = calculate_heading(Convention::Ned, level_accel, south_mag);
         assert!(
             (heading.abs() - 180.0).abs() < 1.0,
@@ -192,7 +190,7 @@ mod tests {
         );
 
         // West: magnetometer points west (negative Y in NED)
-        let west_mag = Vector3::new(0.0, -1.0, 0.0);
+        let west_mag = Vector::new(0.0, -1.0, 0.0);
         let heading = calculate_heading(Convention::Ned, level_accel, west_mag);
         // NED may have different sign convention, allow both ±90°
         assert!(
@@ -205,14 +203,14 @@ mod tests {
     #[test]
     fn test_compass_tilt_compensation() {
         // Test that heading remains consistent when device is tilted
-        let north_mag = Vector3::new(1.0, 0.0, 0.5); // North with some Z component
+        let north_mag = Vector::new(1.0, 0.0, 0.5); // North with some Z component
 
         // Level device
-        let level_accel = Vector3::new(0.0, 0.0, 1.0);
+        let level_accel = Vector::new(0.0, 0.0, 1.0);
         let level_heading = calculate_heading(Convention::Nwu, level_accel, north_mag);
 
         // Tilted device (30° pitch)
-        let tilted_accel = Vector3::new(0.5, 0.0, 0.866); // sin(30°), 0, cos(30°)
+        let tilted_accel = Vector::new(0.5, 0.0, 0.866); // sin(30°), 0, cos(30°)
         let tilted_heading = calculate_heading(Convention::Nwu, tilted_accel, north_mag);
 
         // Headings should be similar despite tilt (within 5° tolerance for numerical precision)
@@ -229,12 +227,12 @@ mod tests {
     #[test]
     fn test_compass_heading_range() {
         // Test that headings are in valid range (-180° to +180°)
-        let level_accel = Vector3::new(0.0, 0.0, 1.0);
+        let level_accel = Vector::new(0.0, 0.0, 1.0);
 
         // Test multiple magnetometer directions
         for angle_deg in (0..360).step_by(30) {
             let angle_rad = (angle_deg as f32).to_radians();
-            let mag = Vector3::new(angle_rad.cos(), -angle_rad.sin(), 0.0); // NWU convention
+            let mag = Vector::new(angle_rad.cos(), -angle_rad.sin(), 0.0); // NWU convention
 
             let heading = calculate_heading(Convention::Nwu, level_accel, mag);
 
@@ -250,9 +248,9 @@ mod tests {
     #[test]
     fn test_compass_cross_product_accuracy() {
         // Test the cross product calculations directly
-        let a = Vector3::new(1.0, 0.0, 0.0);
-        let b = Vector3::new(0.0, 1.0, 0.0);
-        let cross = a.cross(&b);
+        let a = Vector::new(1.0, 0.0, 0.0);
+        let b = Vector::new(0.0, 1.0, 0.0);
+        let cross = a.cross(b);
 
         // Should be (0, 0, 1)
         assert!((cross.x - 0.0f32).abs() < 1e-6);
@@ -260,8 +258,8 @@ mod tests {
         assert!((cross.z - 1.0f32).abs() < 1e-6);
 
         // Test normalization preserves direction
-        let normalized = cross.safe_normalize();
+        let normalized = cross.normalize();
         assert!((normalized.z - 1.0f32).abs() < 1e-6);
-        assert!((normalized.magnitude() - 1.0f32).abs() < 1e-6);
+        assert!((normalized.norm() - 1.0f32).abs() < 1e-6);
     }
 }
