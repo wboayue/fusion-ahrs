@@ -156,6 +156,9 @@ impl Quaternion {
     /// `FUSION_USE_NORMAL_SQRT` (the default C build uses a fast approximate
     /// inverse square root instead).
     ///
+    /// A zero quaternion has no direction and returns NaN components, as in
+    /// C. (Unlike [`Vector::normalize`], which returns zero for a zero vector.)
+    ///
     /// # Example
     /// ```
     /// use fusion_ahrs::Quaternion;

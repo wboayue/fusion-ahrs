@@ -213,6 +213,9 @@ impl Ahrs {
     /// # Arguments
     /// * `settings` - Configuration for the AHRS algorithm
     ///
+    /// # Panics
+    /// In debug builds, if `settings.sample_rate` is not positive.
+    ///
     /// # Example
     /// ```
     /// use fusion_ahrs::{Ahrs, AhrsSettings, Convention};
@@ -304,6 +307,9 @@ impl Ahrs {
     ///
     /// # Arguments
     /// * `settings` - New configuration to apply
+    ///
+    /// # Panics
+    /// In debug builds, if `settings.sample_rate` is not positive.
     ///
     /// # Example
     /// ```

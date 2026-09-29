@@ -12,9 +12,9 @@ readme = "README.md"
 homepage = "https://github.com/wboayue/fusion-ahrs/"
 repository = "https://github.com/wboayue/fusion-ahrs/"
 documentation = "https://docs.rs/fusion-ahrs/latest/fusion_ahrs/"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 keywords = ["ahrs", "imu", "sensor-fusion", "quaternion", "embedded"]
-categories = ["embedded", "algorithms", "science"]
+categories = ["embedded", "no-std", "no-std::no-alloc", "algorithms", "science"]
 exclude = [
     "justfile",
     "AGENTS.md",

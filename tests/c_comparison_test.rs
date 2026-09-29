@@ -422,7 +422,7 @@ fn c_compass_heading() {
     for convention in Convention::ALL {
         for (i, d) in SENSOR_DATA.iter().enumerate() {
             let (a, m) = (d.accelerometer(), d.magnetometer());
-            let rust = calculate_heading(convention, a, m);
+            let rust = calculate_heading(a, m, convention);
             let c = c::compass(arr(a), arr(m), convention_index(convention));
             assert_scalar(
                 &format!("{convention:?} sample {i}"),

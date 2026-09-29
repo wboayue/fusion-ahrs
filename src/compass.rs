@@ -13,28 +13,29 @@ use crate::types::Convention;
 /// cross products to construct orthogonal horizontal reference vectors
 /// and atan2 to calculate the heading angle.
 ///
+/// Arguments follow the C library's `FusionCompass` order.
+///
 /// # Arguments
-/// * `convention` - Earth coordinate system convention
 /// * `accelerometer` - Accelerometer reading (gravity vector)
 /// * `magnetometer` - Calibrated magnetometer reading
+/// * `convention` - Earth coordinate system convention
 ///
 /// # Returns
 /// Heading angle in degrees (range: -180° to +180°, 0° = North)
 ///
 /// # Example
 /// ```
-/// use fusion_ahrs::Vector;
-/// use fusion_ahrs::{Convention, calculate_heading};
+/// use fusion_ahrs::{Convention, Vector, calculate_heading};
 ///
 /// let accel = Vector::new(0.0, 0.0, 1.0); // Level device (NWU)
 /// let mag = Vector::new(1.0, 0.0, 0.0);   // Pointing North (NWU)
-/// let heading = calculate_heading(Convention::Nwu, accel, mag);
+/// let heading = calculate_heading(accel, mag, Convention::Nwu);
 /// assert!((heading - 0.0).abs() < 1.0);    // Should be close to 0° (North)
 /// ```
 pub fn calculate_heading(
-    convention: Convention,
     accelerometer: impl Into<Vector>,
     magnetometer: impl Into<Vector>,
+    convention: Convention,
 ) -> f32 {
     let (accelerometer, magnetometer) = (accelerometer.into(), magnetometer.into());
     match convention {
@@ -78,7 +79,7 @@ mod tests {
 
         // North: magnetometer points north
         let north_mag = Vector::new(1.0, 0.0, 0.0);
-        let heading = calculate_heading(Convention::Nwu, level_accel, north_mag);
+        let heading = calculate_heading(level_accel, north_mag, Convention::Nwu);
         assert!(
             (heading - 0.0).abs() < 1.0,
             "North heading should be ~0°, got {}",
@@ -87,7 +88,7 @@ mod tests {
 
         // East: magnetometer points east (negative Y in NWU)
         let east_mag = Vector::new(0.0, -1.0, 0.0);
-        let heading = calculate_heading(Convention::Nwu, level_accel, east_mag);
+        let heading = calculate_heading(level_accel, east_mag, Convention::Nwu);
         assert!(
             (heading - 90.0).abs() < 1.0,
             "East heading should be ~90°, got {}",
@@ -96,7 +97,7 @@ mod tests {
 
         // South: magnetometer points south
         let south_mag = Vector::new(-1.0, 0.0, 0.0);
-        let heading = calculate_heading(Convention::Nwu, level_accel, south_mag);
+        let heading = calculate_heading(level_accel, south_mag, Convention::Nwu);
         let _expected_south = if heading > 0.0 { 180.0 } else { -180.0 };
         assert!(
             (heading.abs() - 180.0).abs() < 1.0,
@@ -106,7 +107,7 @@ mod tests {
 
         // West: magnetometer points west (positive Y in NWU)
         let west_mag = Vector::new(0.0, 1.0, 0.0);
-        let heading = calculate_heading(Convention::Nwu, level_accel, west_mag);
+        let heading = calculate_heading(level_accel, west_mag, Convention::Nwu);
         assert!(
             (heading - (-90.0)).abs() < 1.0,
             "West heading should be ~-90°, got {}",
@@ -121,7 +122,7 @@ mod tests {
 
         // North: magnetometer points north (positive Y in ENU)
         let north_mag = Vector::new(0.0, 1.0, 0.0);
-        let heading = calculate_heading(Convention::Enu, level_accel, north_mag);
+        let heading = calculate_heading(level_accel, north_mag, Convention::Enu);
         assert!(
             (heading - 0.0).abs() < 1.0,
             "North heading should be ~0°, got {}",
@@ -130,7 +131,7 @@ mod tests {
 
         // East: magnetometer points east (positive X in ENU)
         let east_mag = Vector::new(1.0, 0.0, 0.0);
-        let heading = calculate_heading(Convention::Enu, level_accel, east_mag);
+        let heading = calculate_heading(level_accel, east_mag, Convention::Enu);
         assert!(
             (heading - 90.0).abs() < 1.0,
             "East heading should be ~90°, got {}",
@@ -139,7 +140,7 @@ mod tests {
 
         // South: magnetometer points south (negative Y in ENU)
         let south_mag = Vector::new(0.0, -1.0, 0.0);
-        let heading = calculate_heading(Convention::Enu, level_accel, south_mag);
+        let heading = calculate_heading(level_accel, south_mag, Convention::Enu);
         assert!(
             (heading.abs() - 180.0).abs() < 1.0,
             "South heading should be ±180°, got {}",
@@ -148,7 +149,7 @@ mod tests {
 
         // West: magnetometer points west (negative X in ENU)
         let west_mag = Vector::new(-1.0, 0.0, 0.0);
-        let heading = calculate_heading(Convention::Enu, level_accel, west_mag);
+        let heading = calculate_heading(level_accel, west_mag, Convention::Enu);
         assert!(
             (heading - (-90.0)).abs() < 1.0,
             "West heading should be ~-90°, got {}",
@@ -163,7 +164,7 @@ mod tests {
 
         // North: magnetometer points north (positive X in NED)
         let north_mag = Vector::new(1.0, 0.0, 0.0);
-        let heading = calculate_heading(Convention::Ned, level_accel, north_mag);
+        let heading = calculate_heading(level_accel, north_mag, Convention::Ned);
         assert!(
             (heading - 0.0).abs() < 1.0,
             "North heading should be ~0°, got {}",
@@ -172,7 +173,7 @@ mod tests {
 
         // East: magnetometer points east (positive Y in NED)
         let east_mag = Vector::new(0.0, 1.0, 0.0);
-        let heading = calculate_heading(Convention::Ned, level_accel, east_mag);
+        let heading = calculate_heading(level_accel, east_mag, Convention::Ned);
         // NED may have different sign convention, allow both ±90°
         assert!(
             (heading - 90.0).abs() < 1.0 || (heading - (-90.0)).abs() < 1.0,
@@ -182,7 +183,7 @@ mod tests {
 
         // South: magnetometer points south (negative X in NED)
         let south_mag = Vector::new(-1.0, 0.0, 0.0);
-        let heading = calculate_heading(Convention::Ned, level_accel, south_mag);
+        let heading = calculate_heading(level_accel, south_mag, Convention::Ned);
         assert!(
             (heading.abs() - 180.0).abs() < 1.0,
             "South heading should be ±180°, got {}",
@@ -191,7 +192,7 @@ mod tests {
 
         // West: magnetometer points west (negative Y in NED)
         let west_mag = Vector::new(0.0, -1.0, 0.0);
-        let heading = calculate_heading(Convention::Ned, level_accel, west_mag);
+        let heading = calculate_heading(level_accel, west_mag, Convention::Ned);
         // NED may have different sign convention, allow both ±90°
         assert!(
             (heading - (-90.0)).abs() < 1.0 || (heading - 90.0).abs() < 1.0,
@@ -207,11 +208,11 @@ mod tests {
 
         // Level device
         let level_accel = Vector::new(0.0, 0.0, 1.0);
-        let level_heading = calculate_heading(Convention::Nwu, level_accel, north_mag);
+        let level_heading = calculate_heading(level_accel, north_mag, Convention::Nwu);
 
         // Tilted device (30° pitch)
         let tilted_accel = Vector::new(0.5, 0.0, 0.866); // sin(30°), 0, cos(30°)
-        let tilted_heading = calculate_heading(Convention::Nwu, tilted_accel, north_mag);
+        let tilted_heading = calculate_heading(tilted_accel, north_mag, Convention::Nwu);
 
         // Headings should be similar despite tilt (within 5° tolerance for numerical precision)
         let heading_diff = (level_heading - tilted_heading).abs();
@@ -234,7 +235,7 @@ mod tests {
             let angle_rad = (angle_deg as f32).to_radians();
             let mag = Vector::new(angle_rad.cos(), -angle_rad.sin(), 0.0); // NWU convention
 
-            let heading = calculate_heading(Convention::Nwu, level_accel, mag);
+            let heading = calculate_heading(level_accel, mag, Convention::Nwu);
 
             assert!(
                 (-180.0..=180.0).contains(&heading),

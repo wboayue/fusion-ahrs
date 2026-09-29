@@ -1,5 +1,5 @@
 [![Build](https://github.com/wboayue/fusion-ahrs/workflows/build/badge.svg)](https://github.com/wboayue/fusion-ahrs/actions/workflows/build.yml)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 [![crates.io](https://img.shields.io/crates/v/fusion-ahrs.svg)](https://crates.io/crates/fusion-ahrs)
 [![Documentation](https://img.shields.io/badge/Documentation-green.svg)](https://docs.rs/fusion-ahrs/latest/fusion_ahrs/)
 [![Coverage Status](https://coveralls.io/repos/github/wboayue/fusion-ahrs/badge.png?branch=main)](https://coveralls.io/github/wboayue/fusion-ahrs?branch=main)
@@ -348,15 +348,19 @@ Criterion benchmarks live in [`benches/ahrs_benchmarks.rs`](benches/ahrs_benchma
 cargo bench
 ```
 
+## Versioning
+
+The crate follows [Semantic Versioning](https://semver.org/). From 1.0:
+
+- **Upstream changes**: the crate tracks the [Fusion C library](https://github.com/xioTechnologies/Fusion). Upstream fixes that change outputs ship in minor releases; upstream API changes that add or rename settings, flags, or functions ship in a new major release, since the public settings and state structs have public fields.
+- **MSRV**: the minimum supported Rust version (currently 1.85) is raised only in a minor release, never a patch release, and each bump is noted in the changelog.
+- **nalgebra**: each supported nalgebra version has its own feature (`nalgebra-0_35`, …). New versions are added alongside existing ones in minor releases; removing one is a major change. A feature may require a newer Rust than the crate MSRV if nalgebra does.
+- **Numeric output**: results may change in the last bits between minor releases when parity with the C library improves; such changes are noted in the changelog.
+
 ## License
 
-Licensed under either of:
-
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-
-at your option.
+Licensed under the [MIT license](LICENSE).
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be licensed as above, without any additional terms or conditions.
