@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <!-- Source for social-preview.png. Needs IBM Plex Sans and IBM Plex Mono installed to render as designed. -->
+  <defs>
+    <clipPath id="dial"><circle cx="220" cy="220" r="186"/></clipPath>
+  </defs>
+  <rect width="1280" height="640" fill="#0B1220"/>
+
+  <g font-family="'IBM Plex Sans', sans-serif" fill="#F4F1EA">
+    <text x="72" y="122" font-family="'IBM Plex Mono', monospace" font-size="22" font-weight="500" letter-spacing="2.64" fill="#F0703C">RUST · NO_STD</text>
+    <text x="72" y="229" font-size="96" font-weight="700" letter-spacing="-2.88">fusion-ahrs</text>
+    <text x="72" y="304" font-size="34" font-weight="600">Rust port of xioTechnologies'</text>
+    <text x="72" y="347" font-size="34" font-weight="600">Fusion AHRS</text>
+    <text x="72" y="394" font-size="26" font-weight="400" fill="#AEB8C8">Sensor fusion for gyroscope, accelerometer,</text>
+    <text x="72" y="429" font-size="26" font-weight="400" fill="#AEB8C8">and magnetometer</text>
+    <rect x="73" y="478" width="378" height="62" rx="8" fill="none" stroke="#F0703C" stroke-width="2"/>
+    <text x="96" y="517" font-family="'IBM Plex Mono', monospace" font-size="24" xml:space="preserve"><tspan fill="#8A96AA">$ </tspan>cargo add fusion-ahrs</text>
+  </g>
+
+  <g transform="translate(768 100)">
+    <g clip-path="url(#dial)">
+      <g transform="rotate(-16 220 220) translate(0 22)">
+        <rect x="-100" y="-200" width="640" height="420" fill="#1B3F63"/>
+        <rect x="-100" y="220" width="640" height="420" fill="#6B4423"/>
+        <line x1="-100" y1="220" x2="540" y2="220" stroke="#F4F1EA" stroke-width="4"/>
+        <g stroke="#F4F1EA" stroke-width="3" stroke-linecap="round" opacity="0.9">
+          <line x1="188" y1="170" x2="252" y2="170"/>
+          <line x1="164" y1="120" x2="276" y2="120"/>
+          <line x1="188" y1="270" x2="252" y2="270"/>
+          <line x1="164" y1="320" x2="276" y2="320"/>
+        </g>
+      </g>
+    </g>
+    <circle cx="220" cy="220" r="186" fill="none" stroke="#3A4B68" stroke-width="3"/>
+    <g stroke="#AEB8C8" stroke-width="3" stroke-linecap="round">
+      <line x1="220" y1="4" x2="220" y2="22"/>
+      <line x1="220" y1="12" x2="220" y2="22" transform="rotate(-10 220 220)"/>
+      <line x1="220" y1="12" x2="220" y2="22" transform="rotate(-20 220 220)"/>
+      <line x1="220" y1="4" x2="220" y2="22" transform="rotate(-30 220 220)"/>
+      <line x1="220" y1="4" x2="220" y2="22" transform="rotate(-60 220 220)"/>
+      <line x1="220" y1="12" x2="220" y2="22" transform="rotate(10 220 220)"/>
+      <line x1="220" y1="12" x2="220" y2="22" transform="rotate(20 220 220)"/>
+      <line x1="220" y1="4" x2="220" y2="22" transform="rotate(30 220 220)"/>
+      <line x1="220" y1="4" x2="220" y2="22" transform="rotate(60 220 220)"/>
+    </g>
+    <polygon points="220,40 208,64 232,64" fill="#F0703C" transform="rotate(-16 220 220)"/>
+    <g stroke="#F0703C" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M112 220 H184 V242"/>
+      <path d="M328 220 H256 V242"/>
+    </g>
+    <circle cx="220" cy="220" r="8" fill="#F0703C"/>
+  </g>
+</svg>
