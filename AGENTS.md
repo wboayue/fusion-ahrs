@@ -137,7 +137,10 @@ Keep `CHANGELOG.md` following [Keep a Changelog 1.1.0](https://keepachangelog.co
 - Show the draft to the maintainer before creating the GitHub release
 
 ## Release Workflow
-1. Feature PRs are squash-merged with a conventional title ending in `(#N)`
+1. Merge feature PRs with the method that fits the branch contents:
+   - **Squash** (default): one logical change, or any fixup/WIP/review-fix commits. Conventional title ending in `(#N)`
+   - **Rebase**: several self-contained conventional commits worth keeping separately (e.g. a `refactor:` then the `feat:` built on it); each must build and pass tests on its own
+   - **Merge commit**: only when the branch's commit SHAs must survive (history shared with another branch or already referenced elsewhere). Conventional merge title ending in `(#N)`
 2. Release PR `chore(release): vX.Y.Z`: bump `Cargo.toml`, promote `[Unreleased]`, update compare links; run `cargo package` (verifies the crate builds without `fusion-c-sys`), then unpack `target/package/fusion-ahrs-X.Y.Z.crate` and run `cargo test --all-features` inside it with a fresh `CARGO_TARGET_DIR` (a reused one can hold a stale build of the same version), since `cargo package` only builds the library. Tests that need `fusion-c-sys` must be in the `exclude` list
    `cargo package` doesn't validate `categories`; check new slugs exist (`https://crates.io/api/v1/categories/<slug>` returns 200). "ignoring test … not included in the published package" warnings for the C tests are expected
 3. After merge: `just tag vX.Y.Z`, then create the GitHub release from the approved notes
