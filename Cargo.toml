@@ -13,8 +13,8 @@ homepage = "https://github.com/wboayue/fusion-ahrs/"
 repository = "https://github.com/wboayue/fusion-ahrs/"
 documentation = "https://docs.rs/fusion-ahrs/latest/fusion_ahrs/"
 license = "MIT"
-keywords = ["ahrs", "imu", "sensor-fusion", "quaternion", "embedded"]
-categories = ["embedded", "no-std", "no-std::no-alloc", "algorithms", "science"]
+keywords = ["ahrs", "imu", "sensor-fusion", "madgwick", "orientation"]
+categories = ["embedded", "no-std::no-alloc", "algorithms", "science::robotics", "aerospace"]
 exclude = [
     "justfile",
     "AGENTS.md",
