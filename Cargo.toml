@@ -3,7 +3,7 @@ members = ["fusion-c-sys"]
 
 [package]
 name = "fusion-ahrs"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Wil Boayue <wil@wsblabs.com>"]
