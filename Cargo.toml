@@ -24,6 +24,7 @@ exclude = [
     ".config",
     ".gitmodules",
     "testdata",
+    "assets",
     # Need the unpublished fusion-c-sys and the fusion-c submodule
     "tests/c_comparison_test.rs",
     "tests/c_math_test.rs",
